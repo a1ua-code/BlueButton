@@ -1,0 +1,29 @@
+/* Global styles. Most styling is done with Tailwind classes directly in components:
+   https://tailwindcss.com/docs  (e.g. className="rounded-lg bg-white p-4 shadow-sm")
+
+   The brand colors below create classes like bg-brand-600, text-brand-700, border-brand-200.
+   Change them here and the whole app follows. */
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+
+  --font-sans:
+    "Pretendard", "Inter", ui-sans-serif, system-ui, "Apple SD Gothic Neo", "Malgun Gothic",
+    sans-serif;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* Visible keyboard focus everywhere (accessibility, SRS IR-35 spirit) */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-brand-600;
+}

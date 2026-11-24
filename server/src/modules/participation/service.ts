@@ -1,15 +1,12 @@
 // Finding, viewing, joining and leaving parties. OWNER: C
 // SRS FR-40 to FR-60, FR-71 to FR-86.
 //
-// TODO (C):
-//  - more filters/sorting: date range, distance, remaining seats (FR-43, FR-53)
-//  - bookmarks list with live status (FR-74 to FR-79), hide party (FR-84)
-//  - host leaving rules (FR-65, FR-66), overlap warning (FR-71, FR-72)
-//  - waitlist, recommendations, question to host (FR-55, FR-85, FR-86 - MAY)
 import bcrypt from "bcryptjs";
-import { and, asc, count, eq, gt, ilike, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, lte, notInArray, sql, type SQL } from "drizzle-orm";
 import {
+  bookmarks,
   db,
+  hiddenParties,
   parties,
   partyMembers,
   users,
@@ -41,10 +38,10 @@ const summaryColumns = {
   passwordHash: parties.passwordHash,
 };
 
-type SummaryRow = { passwordHash: string | null } & Record<string, unknown>;
+type SummaryRow = { passwordHash: string | null; capacity: number; memberCount: number } & Record<string, unknown>;
 
-function toSummary<T extends SummaryRow>({ passwordHash, ...rest }: T) {
-  return { ...rest, locked: passwordHash !== null };
+function toSummary<T extends SummaryRow>({ passwordHash, capacity, memberCount, ...rest }: T) {
+  return { ...rest, capacity, memberCount, remainingSeats: capacity - memberCount, locked: passwordHash !== null };
 }
 
 export type PartyFilters = {
@@ -55,10 +52,22 @@ export type PartyFilters = {
   noPassword?: boolean;
   includeFull?: boolean;
   page?: number;
+  dateFrom?: Date;
+  dateTo?: Date;
+  minSeats?: number;
+  lat?: number;
+  lng?: number;
+  maxDistanceKm?: number;
+  sort?: "soonest" | "seats" | "distance";
+  viewerId?: string;
 };
 
 /** Party list (FR-40 to FR-45). Default: recruiting parties that have not started, soonest first. */
 export async function listParties(f: PartyFilters) {
+  // Clamp the spherical cosine argument to avoid floating point errors near the poles.
+  const distance = f.lat !== undefined && f.lng !== undefined
+    ? sql<number>`6371 * acos(least(1, greatest(-1, sin(radians(${f.lat})) * sin(radians(${parties.lat})) + cos(radians(${f.lat})) * cos(radians(${parties.lat})) * cos(radians(${parties.lng}) - radians(${f.lng})))))`
+    : undefined;
   const statuses: PartyStatus[] = f.includeFull ? ["RECRUITING", "FULL", "CLOSED"] : ["RECRUITING"];
   const conditions: (SQL | undefined)[] = [
     inArray(parties.status, statuses),
@@ -70,6 +79,11 @@ export async function listParties(f: PartyFilters) {
       ? inArray(parties.availability, f.availability as Availability[])
       : undefined,
     f.noPassword ? isNull(parties.passwordHash) : undefined,
+    f.dateFrom ? gte(parties.startAt, f.dateFrom) : undefined,
+    f.dateTo ? lte(parties.startAt, f.dateTo) : undefined,
+    f.minSeats !== undefined ? gte(sql<number>`${parties.capacity} - ${parties.memberCount}`, f.minSeats) : undefined,
+    f.maxDistanceKm !== undefined && distance ? lte(distance, f.maxDistanceKm) : undefined,
+    f.viewerId ? notInArray(parties.id, db.select({ partyId: hiddenParties.partyId }).from(hiddenParties).where(eq(hiddenParties.userId, f.viewerId))) : undefined,
   ];
   const where = and(...conditions);
   const page = Math.max(1, f.page ?? 1);
@@ -79,7 +93,11 @@ export async function listParties(f: PartyFilters) {
       .select(summaryColumns)
       .from(parties)
       .where(where)
-      .orderBy(asc(parties.startAt), asc(parties.id))
+      .orderBy(
+        f.sort === "seats" ? desc(sql<number>`${parties.capacity} - ${parties.memberCount}`) :
+        f.sort === "distance" && distance ? asc(distance) : asc(parties.startAt),
+        asc(parties.startAt), asc(parties.id),
+      )
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
     db.select({ total: count() }).from(parties).where(where),
@@ -111,12 +129,15 @@ export async function getPartyDetail(partyId: string, viewer?: AuthUser) {
     .orderBy(asc(partyMembers.joinedAt));
 
   const isMember = !!viewer && members.some((m) => m.id === viewer.id);
+  const [bookmark] = viewer ? await db.select({ partyId: bookmarks.partyId }).from(bookmarks)
+    .where(and(eq(bookmarks.userId, viewer.id), eq(bookmarks.partyId, partyId))) : [];
   const { hostId, hostNickname, ...rest } = party;
   return {
     ...toSummary(rest),
     host: { id: hostId, nickname: hostNickname },
     isMember,
     isHost: viewer?.id === hostId,
+    isBookmarked: !!bookmark,
     members: isMember ? members : undefined,
   };
 }
@@ -209,7 +230,19 @@ export async function joinParty(partyId: string, user: AuthUser, password?: stri
       });
     }
   }
-  return { status: result.status, alreadyMember: !result.joined };
+  // Start times within two hours are a useful warning; party duration is not stored.
+  const [target] = await db.select({ startAt: parties.startAt }).from(parties).where(eq(parties.id, partyId));
+  const overlaps = target ? await db
+    .select({ id: parties.id, title: parties.title, startAt: parties.startAt })
+    .from(partyMembers)
+    .innerJoin(parties, eq(parties.id, partyMembers.partyId))
+    .where(and(eq(partyMembers.userId, user.id), eq(partyMembers.state, "ACTIVE"),
+      sql`${parties.id} <> ${partyId}`,
+      gte(parties.startAt, new Date(target.startAt.getTime() - 2 * 60 * 60 * 1000)),
+      lte(parties.startAt, new Date(target.startAt.getTime() + 2 * 60 * 60 * 1000)),
+      gt(parties.startAt, new Date()), sql`${parties.status} <> 'CANCELLED'`))
+    .orderBy(asc(parties.startAt)) : [];
+  return { status: result.status, alreadyMember: !result.joined, overlapWarning: overlaps.length > 0, overlaps };
 }
 
 /** A participant leaves (FR-60). The host must transfer the host role or cancel instead (FR-65). */
@@ -269,4 +302,36 @@ export async function isMember(partyId: string, userId: string) {
     .from(partyMembers)
     .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, userId)));
   return m?.state === "ACTIVE";
+}
+
+export async function addBookmark(partyId: string, userId: string) {
+  const [party] = await db.select({ id: parties.id }).from(parties).where(eq(parties.id, partyId));
+  if (!party) throw notFound("Party");
+  await db.insert(bookmarks).values({ partyId, userId }).onConflictDoNothing();
+  return { bookmarked: true };
+}
+
+export async function removeBookmark(partyId: string, userId: string) {
+  await db.delete(bookmarks).where(and(eq(bookmarks.partyId, partyId), eq(bookmarks.userId, userId)));
+  return { bookmarked: false };
+}
+
+/** Reads current party status, including full, closed, and cancelled bookmarks. */
+export async function listBookmarks(userId: string) {
+  const rows = await db.select({ ...summaryColumns, bookmarkedAt: bookmarks.createdAt })
+    .from(bookmarks).innerJoin(parties, eq(parties.id, bookmarks.partyId))
+    .where(eq(bookmarks.userId, userId)).orderBy(desc(bookmarks.createdAt));
+  return { parties: rows.map(({ bookmarkedAt, ...party }) => ({ ...toSummary(party), bookmarkedAt })) };
+}
+
+export async function hideParty(partyId: string, userId: string) {
+  const [party] = await db.select({ id: parties.id }).from(parties).where(eq(parties.id, partyId));
+  if (!party) throw notFound("Party");
+  await db.insert(hiddenParties).values({ partyId, userId }).onConflictDoNothing();
+  return { hidden: true };
+}
+
+export async function unhideParty(partyId: string, userId: string) {
+  await db.delete(hiddenParties).where(and(eq(hiddenParties.partyId, partyId), eq(hiddenParties.userId, userId)));
+  return { hidden: false };
 }

@@ -39,6 +39,13 @@ export type PartyFilters = {
   noPassword?: boolean;
   includeFull?: boolean;
   page?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  minSeats?: number;
+  lat?: number;
+  lng?: number;
+  maxDistanceKm?: number;
+  sort?: "soonest" | "seats" | "distance";
 };
 
 export function fetchParties(f: PartyFilters) {
@@ -49,6 +56,13 @@ export function fetchParties(f: PartyFilters) {
   if (f.noPassword) params.set("noPassword", "true");
   if (f.includeFull) params.set("includeFull", "true");
   if (f.page && f.page > 1) params.set("page", String(f.page));
+  if (f.dateFrom) params.set("dateFrom", f.dateFrom);
+  if (f.dateTo) params.set("dateTo", f.dateTo);
+  if (f.minSeats !== undefined) params.set("minSeats", String(f.minSeats));
+  if (f.lat !== undefined) params.set("lat", String(f.lat));
+  if (f.lng !== undefined) params.set("lng", String(f.lng));
+  if (f.maxDistanceKm !== undefined) params.set("maxDistanceKm", String(f.maxDistanceKm));
+  if (f.sort) params.set("sort", f.sort);
   return api<{ parties: PartySummary[]; total: number; page: number; pageSize: number }>(
     `/parties?${params}`,
   );
@@ -65,6 +79,21 @@ export const joinParty = (id: string, password?: string) =>
 
 export const leaveParty = (id: string) =>
   api<{ status: PartyStatus }>(`/parties/${id}/leave`, { method: "POST" });
+
+export const addBookmark = (id: string) =>
+  api<{ bookmarked: boolean }>(`/parties/${id}/bookmark`, { method: "PUT" });
+
+export const removeBookmark = (id: string) =>
+  api<{ bookmarked: boolean }>(`/parties/${id}/bookmark`, { method: "DELETE" });
+
+export const fetchBookmarks = () =>
+  api<{ parties: (PartySummary & { bookmarkedAt: string })[] }>("/me/bookmarks");
+
+export const hideParty = (id: string) =>
+  api<{ hidden: boolean }>(`/parties/${id}/hide`, { method: "PUT" });
+
+export const unhideParty = (id: string) =>
+  api<{ hidden: boolean }>(`/parties/${id}/hide`, { method: "DELETE" });
 
 export const fetchMyParties = () =>
   api<{

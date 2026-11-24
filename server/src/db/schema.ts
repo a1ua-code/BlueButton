@@ -200,6 +200,17 @@ export const bookmarks = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.partyId] })],
 );
 
+/** Owner: C. A hidden party is excluded from this user's browsing results. */
+export const hiddenParties = pgTable(
+  "hidden_parties",
+  {
+    userId: uuid().notNull().references(() => users.id, { onDelete: "cascade" }),
+    partyId: uuid().notNull().references(() => parties.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.partyId] })],
+);
+
 // ---------------------------------------------------------------- D: chat and settlements
 
 /** Owner: D. senderId is null for system messages. */

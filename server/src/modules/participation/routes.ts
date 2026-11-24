@@ -2,7 +2,6 @@
 import { param } from "../../lib/params";
 import { Router } from "express";
 import { z } from "zod";
-import { notYet } from "../../lib/notYet";
 import { parse } from "../../lib/validate";
 import { currentUser, requireUser } from "../../middleware/auth";
 import * as participation from "./service";
@@ -28,12 +27,25 @@ const listQuery = z.object({
     .optional()
     .transform((v) => v === "true"),
   page: z.coerce.number().int().min(1).optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  minSeats: z.coerce.number().int().min(0).optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  maxDistanceKm: z.coerce.number().positive().optional(),
+  sort: z.enum(["soonest", "seats", "distance"]).optional(),
+}).refine((v) => !v.dateFrom || !v.dateTo || v.dateFrom <= v.dateTo, {
+  message: "dateFrom must be before dateTo",
+}).refine((v) => v.maxDistanceKm === undefined || (v.lat !== undefined && v.lng !== undefined), {
+  message: "Distance filtering requires lat and lng",
+}).refine((v) => v.sort !== "distance" || (v.lat !== undefined && v.lng !== undefined), {
+  message: "Distance sorting requires lat and lng",
 });
 
 // Guests may browse (FR-09), so these two routes do not require login.
 partiesPublicRouter.get("/", async (req, res) => {
   const filters = parse(listQuery, req.query);
-  res.json(await participation.listParties(filters));
+  res.json(await participation.listParties({ ...filters, viewerId: req.user?.id }));
 });
 
 partiesPublicRouter.get("/:id", async (req, res) => {
@@ -52,11 +64,23 @@ partiesPublicRouter.post("/:id/leave", requireUser, async (req, res) => {
   res.json(await participation.leaveParty(param(req, "id"), currentUser(req)));
 });
 
-partiesPublicRouter.put("/:id/bookmark", requireUser, notYet("Bookmarks (FR-74)"));
-partiesPublicRouter.delete("/:id/bookmark", requireUser, notYet("Bookmarks (FR-75)"));
+partiesPublicRouter.put("/:id/bookmark", requireUser, async (req, res) => {
+  res.json(await participation.addBookmark(param(req, "id"), currentUser(req).id));
+});
+partiesPublicRouter.delete("/:id/bookmark", requireUser, async (req, res) => {
+  res.json(await participation.removeBookmark(param(req, "id"), currentUser(req).id));
+});
+partiesPublicRouter.put("/:id/hide", requireUser, async (req, res) => {
+  res.json(await participation.hideParty(param(req, "id"), currentUser(req).id));
+});
+partiesPublicRouter.delete("/:id/hide", requireUser, async (req, res) => {
+  res.json(await participation.unhideParty(param(req, "id"), currentUser(req).id));
+});
 
 meRouter.get("/parties", requireUser, async (req, res) => {
   res.json(await participation.myParties(currentUser(req)));
 });
 
-meRouter.get("/bookmarks", requireUser, notYet("Bookmarks list (FR-76)"));
+meRouter.get("/bookmarks", requireUser, async (req, res) => {
+  res.json(await participation.listBookmarks(currentUser(req).id));
+});

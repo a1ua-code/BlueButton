@@ -30,6 +30,16 @@ export const createPartySchema = z
 
 export type CreatePartyInput = z.infer<typeof createPartySchema>;
 
+// Editing uses the same required fields and validation as creation (FR-61).
+// Blank password means keep the old password; removePassword removes it explicitly.
+export const editPartySchema = createPartySchema.safeExtend({
+  removePassword: z.boolean().default(false),
+}).refine((value) => !value.removePassword || !value.password, {
+  path: ["password"],
+  message: "Do not enter a password when removing password protection.",
+});
+export type EditPartyInput = z.infer<typeof editPartySchema>;
+
 export const hostStatusSchema = z.object({
   status: z.enum(["RECRUITING", "CLOSED"]),
 });

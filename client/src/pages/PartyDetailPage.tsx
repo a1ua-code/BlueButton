@@ -319,9 +319,9 @@ function HostControls({ party }: { party: PartyDetail }) {
       >
         {party.status === "CLOSED" ? "Reopen recruiting" : "Close recruiting"}
       </Button>
-      <Button variant="secondary" className="w-full" disabled title="Not built yet (FR-61)">
-        Edit party (coming soon)
-      </Button>
+      <ButtonLink variant="secondary" className="w-full" to={`/parties/${party.id}/edit`}>
+        Edit party
+      </ButtonLink>
       <Button variant="danger" className="w-full" onClick={() => setCancelOpen(true)}>
         Cancel party
       </Button>

@@ -6,6 +6,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { AdminPage } from "./pages/AdminPage";
 import { ChatPage } from "./pages/ChatPage";
 import { CreatePartyPage } from "./pages/CreatePartyPage";
+import { EditPartyPage } from "./pages/EditPartyPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MyPartiesPage } from "./pages/MyPartiesPage";
 import { PartyDetailPage } from "./pages/PartyDetailPage";
@@ -37,6 +38,14 @@ export function App() {
           element={
             <RequireAuth>
               <CreatePartyPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="parties/:id/edit"
+          element={
+            <RequireAuth>
+              <EditPartyPage />
             </RequireAuth>
           }
         />

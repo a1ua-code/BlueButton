@@ -5,7 +5,7 @@ import { Router } from "express";
 import { notYet } from "../../lib/notYet";
 import { parse } from "../../lib/validate";
 import { currentUser, requireUser } from "../../middleware/auth";
-import { createPartySchema, hostStatusSchema } from "./schemas";
+import { createPartySchema, editPartySchema, hostStatusSchema } from "./schemas";
 import * as parties from "./service";
 
 export const gamesRouter = Router();
@@ -31,8 +31,16 @@ partiesHostRouter.post("/:id/cancel", requireUser, async (req, res) => {
   res.json({ status: await parties.cancelParty(param(req, "id"), currentUser(req)) });
 });
 
-// Planned routes, not built yet (they answer 501). Replace with real handlers.
-partiesHostRouter.patch("/:id", requireUser, notYet("Editing a party (FR-61)"));
+// Host/admin-only settings; never send password hashes back to the browser.
+partiesHostRouter.get("/:id/edit", requireUser, async (req, res) => {
+  res.json({ party: await parties.getPartyForEdit(param(req, "id"), currentUser(req)) });
+});
+partiesHostRouter.patch("/:id", requireUser, async (req, res) => {
+  const input = parse(editPartySchema, req.body);
+  res.json({ party: await parties.editParty(param(req, "id"), currentUser(req), input) });
+});
+
+// Other planned routes still return 501 until implemented.
 partiesHostRouter.post("/:id/transfer-host", requireUser, notYet("Transferring host (FR-64)"));
 partiesHostRouter.delete(
   "/:id/members/:userId",

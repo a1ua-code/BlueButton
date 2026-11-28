@@ -5,6 +5,7 @@ type KakaoLatLng = object;
 type KakaoMapInstance = { setBounds(bounds: object): void; setCenter(point: KakaoLatLng): void };
 type KakaoMaps = {
   load(callback: () => void): void;
+  event: { addListener(target: object, eventName: string, handler: () => void): void };
   LatLng: new (lat: number, lng: number) => KakaoLatLng;
   LatLngBounds: new () => { extend(point: KakaoLatLng): void };
   Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => KakaoMapInstance;
@@ -36,10 +37,14 @@ function loadSdk(key: string): Promise<KakaoMaps> {
   return sdkLoad;
 }
 
-export function KakaoCafeMap({ result, selectedCafe }: { result: CafeSearch; selectedCafe?: Cafe }) {
+export function KakaoCafeMap({ result, selectedCafe, onSelectCafe }: {
+  result: CafeSearch; selectedCafe?: Cafe; onSelectCafe?: (cafe: Cafe) => void;
+}) {
   const elementRef = useRef<HTMLDivElement>(null);
   const [failure, setFailure] = useState("");
   const key = import.meta.env.VITE_KAKAO_JS_KEY?.trim() ?? "";
+  const onSelectCafeRef = useRef(onSelectCafe);
+  onSelectCafeRef.current = onSelectCafe;
 
   useEffect(() => {
     if (!key) return;
@@ -55,7 +60,10 @@ export function KakaoCafeMap({ result, selectedCafe }: { result: CafeSearch; sel
       for (const cafe of result.cafes) {
         const point = new maps.LatLng(cafe.lat, cafe.lng);
         bounds.extend(point);
-        new maps.Marker({ map, position: point, title: cafe.name });
+        const marker = new maps.Marker({ map, position: point, title: cafe.name });
+        if (onSelectCafeRef.current) {
+          maps.event.addListener(marker, "click", () => onSelectCafeRef.current?.(cafe));
+        }
       }
       if (selectedCafe) {
         map.setCenter(new maps.LatLng(selectedCafe.lat, selectedCafe.lng));

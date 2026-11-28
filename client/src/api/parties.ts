@@ -13,7 +13,10 @@ export type CreatePartyInput = {
   capacity: number;
   startAt: string; // ISO string
   locationName: string;
+  address?: string;
   region?: string;
+  lat?: number;
+  lng?: number;
   availability: Availability;
   availabilityNote?: string;
   description?: string;
@@ -44,7 +47,6 @@ export type EditableParty = {
 };
 
 export type UpdatePartyInput = CreatePartyInput & {
-  address?: string;
   removePassword?: boolean;
 };
 

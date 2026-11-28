@@ -8,6 +8,7 @@
 import bcrypt from "bcryptjs";
 import { and, asc, eq } from "drizzle-orm";
 import { db, games, parties, partyMembers, users, type PartyStatus } from "../../db";
+import { ensureNotSuspended } from "./attendancePolicy";
 import { events } from "../../events";
 import { conflict, forbidden, notFound } from "../../lib/errors";
 import type { AuthUser } from "../../middleware/auth";
@@ -29,6 +30,8 @@ export async function createParty(host: AuthUser, input: CreatePartyInput) {
 
   // One transaction: the party and its first member (the host) are created together (FR-35).
   const party = await db.transaction(async (tx) => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, host.id)).for("update");
+    await ensureNotSuspended(tx, host.id);
     const [created] = await tx
       .insert(parties)
       .values({

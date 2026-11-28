@@ -18,6 +18,7 @@ import { events } from "../../events";
 import { AppError, conflict, forbidden, notFound } from "../../lib/errors";
 import type { AuthUser } from "../../middleware/auth";
 import { statusAfterCountChange } from "../parties/status";
+import { ensureNotSuspended, registerAttendanceIncident, DAY_MS, LATE_CANCELLATION_MS, PARTY_LEAVE_AFTER_MS } from "../parties/attendancePolicy";
 
 const PAGE_SIZE = 20;
 
@@ -122,7 +123,7 @@ export async function getPartyDetail(partyId: string, viewer?: AuthUser) {
   if (!party) throw notFound("Party");
 
   const members = await db
-    .select({ id: users.id, nickname: users.nickname, role: partyMembers.role })
+    .select({ id: users.id, nickname: users.nickname, role: partyMembers.role, noShow: partyMembers.noShow })
     .from(partyMembers)
     .innerJoin(users, eq(users.id, partyMembers.userId))
     .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.state, "ACTIVE")))
@@ -138,7 +139,7 @@ export async function getPartyDetail(partyId: string, viewer?: AuthUser) {
     isMember,
     isHost: viewer?.id === hostId,
     isBookmarked: !!bookmark,
-    members: isMember ? members : undefined,
+    members: isMember ? members.map((m) => ({ ...m, noShow: viewer?.id === hostId ? m.noShow : false })) : undefined,
   };
 }
 
@@ -190,6 +191,9 @@ export async function joinParty(partyId: string, user: AuthUser, password?: stri
   const result = await db.transaction(async (tx) => {
     const party = await lockParty(tx, partyId);
 
+    // Lock the user row to serialize a penalty with a concurrent join.
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, user.id)).for("update");
+    await ensureNotSuspended(tx, user.id);
     const existing = await findMembership(tx, partyId, user.id);
     if (existing?.state === "ACTIVE") return { joined: false as const, status: party.status }; // FR-51
     if (existing?.state === "REMOVED") throw forbidden("The host removed you from this party.");
@@ -252,25 +256,39 @@ export async function leaveParty(partyId: string, user: AuthUser) {
     const member = await findMembership(tx, partyId, user.id);
     if (!member || member.state !== "ACTIVE")
       throw conflict("NOT_MEMBER", "You are not in this party.");
+    const now = new Date();
+    if (party.status !== "CANCELLED" && party.startAt <= now && now < new Date(party.startAt.getTime() + PARTY_LEAVE_AFTER_MS)) {
+      throw conflict("LEAVE_AFTER_24H", "After the game starts, you may leave the party 24 hours later.");
+    }
     if (member.role === "HOST") {
       // FR-65: do not orphan parties with participants.
       if (party.memberCount !== 1) {
         throw conflict("HOST_TRANSFER_REQUIRED", "Transfer the host role to another member before leaving.");
       }
+      // Preserve completed parties, history, and attendance evidence.
+      if (party.startAt <= now) throw conflict("COMPLETED_PARTY_PRESERVED",
+        "Completed parties cannot be deleted by leaving; retain the host role or transfer it.");
       // FR-66: sole-member host leaving deletes the whole party. Cascading FKs
       // remove memberships/messages/bookmarks/settlements in the same transaction.
       await tx.delete(parties).where(eq(parties.id, partyId));
       return { deleted: true as const, status: party.status, previousStatus: party.status };
     }
 
+    let lateCancellation: { pointsAdded: number; suspendedUntil: Date | null } | null = null;
+    // FR-70: strict <12-hour cancellation window; exactly 12h remains free.
+    if (party.status !== "CANCELLED" && party.startAt > now && party.startAt.getTime() - now.getTime() < LATE_CANCELLATION_MS) {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, user.id)).for("update");
+      lateCancellation = await registerAttendanceIncident(tx, user.id, partyId,
+        "LATE_CANCEL", now, party.startAt);
+    }
     await tx
       .update(partyMembers)
-      .set({ state: "LEFT", leftAt: new Date() })
+      .set({ state: "LEFT", leftAt: now })
       .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, user.id)));
     const memberCount = party.memberCount - 1;
     const status = statusAfterCountChange(party.status, memberCount, party.capacity);
     await tx.update(parties).set({ memberCount, status }).where(eq(parties.id, partyId));
-    return { deleted: false as const, status, previousStatus: party.status };
+    return { deleted: false as const, status, previousStatus: party.status, lateCancellation };
   });
 
   if (result.deleted) return { deleted: true as const };
@@ -283,7 +301,7 @@ export async function leaveParty(partyId: string, user: AuthUser) {
       to: result.status,
     });
   }
-  return { deleted: false as const, status: result.status };
+  return { deleted: false as const, status: result.status, lateCancellation: result.lateCancellation };
 }
 
 /** My Parties page (FR-56 to FR-58): upcoming soonest first, past (and cancelled) separately. */

@@ -22,6 +22,7 @@ import {
 } from "../components/ui";
 import { AVAILABILITY_LABEL } from "../lib/constants";
 import { formatDateTime } from "../lib/format";
+import { RuleVideos } from "../components/RuleVideos";
 
 export function PartyDetailPage() {
   const { id = "" } = useParams();
@@ -84,7 +85,8 @@ export function PartyDetailPage() {
           )}
         </Card>
 
-        {/* TODO (B): rule videos "How to play" (FR-131) and a map (FR-14) go here */}
+        <RuleVideos partyId={party.id} gameName={party.gameName} />
+        {/* Future: party location map (IR-14). */}
 
         {party.members && (
           <Card>

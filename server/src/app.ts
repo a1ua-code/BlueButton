@@ -12,6 +12,7 @@ import { authRouter } from "./modules/auth/routes";
 import { chatRouter } from "./modules/chat/routes";
 import { gamesRouter, partiesHostRouter } from "./modules/parties/routes";
 import { placesRouter } from "./modules/places/routes";
+import { adminVideosRouter, gameVideosRouter, partyVideosRouter } from "./modules/videos/routes";
 import { meRouter, partiesPublicRouter } from "./modules/participation/routes";
 
 export function createApp() {
@@ -27,9 +28,12 @@ export function createApp() {
 
   app.use("/api/auth", authRouter); //                A
   app.use("/api/admin", requireAdmin, adminRouter); // A
+  app.use("/api/admin/videos", requireAdmin, adminVideosRouter); // B: moderation API for A UI
   app.use("/api/games", gamesRouter); //              B
+  app.use("/api/games", gameVideosRouter); //        B: catalog video metadata
   app.use("/api/places", placesRouter); //           B  Kakao cafe search
   app.use("/api/parties", partiesHostRouter); //      B  create / status / cancel
+  app.use("/api/parties", partyVideosRouter); //     B  rule videos for party game
   app.use("/api/parties", partiesPublicRouter); //    C  list / detail / join / leave
   app.use("/api/parties", chatRouter); //             D  messages
   app.use("/api/me", meRouter); //                    C  my parties

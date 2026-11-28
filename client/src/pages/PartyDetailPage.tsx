@@ -4,7 +4,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { errorMessage, fieldErrors } from "../api/client";
-import { cancelParty, fetchParty, joinParty, kickPartyMember, reportPartyNoShow, leaveParty, setPartyStatus, transferPartyHost } from "../api/parties";
+import {
+  cancelParty,
+  fetchParty,
+  joinParty,
+  kickPartyMember,
+  reportPartyNoShow,
+  leaveParty,
+  setPartyStatus,
+  transferPartyHost,
+} from "../api/parties";
 import type { PartyDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -36,22 +45,22 @@ export function PartyDetailPage() {
   if (error) return <ErrorBox error={error} />;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="party-detail grid items-start gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
-        <Card>
+        <Card className="party-detail-main">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold">
+              <h1 className="break-words text-3xl font-extrabold tracking-tight sm:text-4xl">
                 {party.locked && <span aria-label="Password protected">🔒 </span>}
                 {party.title}
               </h1>
-              <p className="text-slate-500">{party.gameName}</p>
+              <p className="mt-2 text-lg font-semibold text-brand-700">{party.gameName}</p>
             </div>
             <StatusBadge status={party.status} />
           </div>
 
           {/* Main facts first (IR-13) */}
-          <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+          <dl className="party-facts mt-6 grid gap-3 sm:grid-cols-2">
             <Fact label="When">{formatDateTime(party.startAt)} (KST)</Fact>
             <Fact label="Where">
               {party.locationName}
@@ -106,7 +115,7 @@ export function PartyDetailPage() {
         )}
       </div>
 
-      <div className="space-y-4">
+      <div className="party-sidebar space-y-4">
         <JoinBox party={party} />
         {party.isHost && <HostControls party={party} />}
       </div>
@@ -116,8 +125,8 @@ export function PartyDetailPage() {
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+    <div className="rounded-2xl bg-brand-50 p-4">
+      <dt className="text-sm font-bold uppercase tracking-wide text-brand-700">{label}</dt>
       <dd className="mt-0.5 text-slate-800">{children}</dd>
     </div>
   );
@@ -161,7 +170,11 @@ function JoinBox({ party }: { party: PartyDetail }) {
     onSuccess: (res) => {
       setLeaveOpen(false);
       refresh();
-      toast.info(res.lateCancellation ? "Late cancellation recorded (+0.5 penalty points)." : "You left the party.");
+      toast.info(
+        res.lateCancellation
+          ? "Late cancellation recorded (+0.5 penalty points)."
+          : "You left the party.",
+      );
     },
     onError: (err) => {
       setLeaveOpen(false);
@@ -171,7 +184,7 @@ function JoinBox({ party }: { party: PartyDetail }) {
 
   if (party.isMember) {
     return (
-      <Card className="space-y-3">
+      <Card className="join-panel space-y-4">
         <p className="text-sm text-slate-600">You are in this party.</p>
         <ButtonLink to={`/parties/${party.id}/chat`} className="w-full" size="lg">
           💬 Open chat
@@ -190,7 +203,8 @@ function JoinBox({ party }: { party: PartyDetail }) {
               onConfirm={() => leave.mutate()}
               onClose={() => setLeaveOpen(false)}
             >
-              {new Date(party.startAt) > new Date() && new Date(party.startAt).getTime() - Date.now() < 12 * 60 * 60 * 1000
+              {new Date(party.startAt) > new Date() &&
+              new Date(party.startAt).getTime() - Date.now() < 12 * 60 * 60 * 1000
                 ? "This is a late cancellation (within 12 hours). It adds 0.5 penalty points."
                 : new Date(party.startAt) <= new Date()
                   ? "After the game starts, you can leave only once 24 hours have passed."
@@ -216,7 +230,8 @@ function JoinBox({ party }: { party: PartyDetail }) {
             : null;
 
   return (
-    <Card className="space-y-3">
+    <Card className="join-panel space-y-4">
+      <p className="eyebrow text-brand-700">YOUR SEAT AT THE TABLE</p>
       {blocked ? (
         // Not joinable: no active Join button (IR-09)
         <p className="rounded-lg bg-slate-100 p-3 text-center text-sm text-slate-600">{blocked}</p>
@@ -296,11 +311,19 @@ function HostControls({ party }: { party: PartyDetail }) {
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [noShowUserId, setNoShowUserId] = useState("");
   const [newHostId, setNewHostId] = useState("");
-  const candidates = (party.members ?? []).filter((m) => m.id !== party.host.id && m.role !== "HOST");
-  const selectedHostId = candidates.some((m) => m.id === newHostId) ? newHostId : (candidates[0]?.id ?? "");
-  const selectedKickId = candidates.some((m) => m.id === kickUserId) ? kickUserId : (candidates[0]?.id ?? "");
+  const candidates = (party.members ?? []).filter(
+    (m) => m.id !== party.host.id && m.role !== "HOST",
+  );
+  const selectedHostId = candidates.some((m) => m.id === newHostId)
+    ? newHostId
+    : (candidates[0]?.id ?? "");
+  const selectedKickId = candidates.some((m) => m.id === kickUserId)
+    ? kickUserId
+    : (candidates[0]?.id ?? "");
   const noShowCandidates = candidates.filter((m) => !m.noShow);
-  const selectedNoShowId = noShowCandidates.some((m) => m.id === noShowUserId) ? noShowUserId : (noShowCandidates[0]?.id ?? "");
+  const selectedNoShowId = noShowCandidates.some((m) => m.id === noShowUserId)
+    ? noShowUserId
+    : (noShowCandidates[0]?.id ?? "");
   const partyStarted = new Date(party.startAt) <= new Date();
 
   const refresh = () => {
@@ -346,7 +369,10 @@ function HostControls({ party }: { party: PartyDetail }) {
       refresh();
       toast.success("Participant removed and blocked from rejoining this party.");
     },
-    onError: (err) => { toast.error(errorMessage(err)); refresh(); },
+    onError: (err) => {
+      toast.error(errorMessage(err));
+      refresh();
+    },
   });
 
   const noShow = useMutation({
@@ -355,11 +381,16 @@ function HostControls({ party }: { party: PartyDetail }) {
       setNoShowOpen(false);
       setNoShowUserId("");
       refresh();
-      toast.info(result.suspendedUntil
-        ? `No-show recorded. Suspension until ${new Date(result.suspendedUntil).toLocaleDateString()}.`
-        : "No-show recorded (1 point total for this party).");
+      toast.info(
+        result.suspendedUntil
+          ? `No-show recorded. Suspension until ${new Date(result.suspendedUntil).toLocaleDateString()}.`
+          : "No-show recorded (1 point total for this party).",
+      );
     },
-    onError: (err) => { toast.error(errorMessage(err)); refresh(); },
+    onError: (err) => {
+      toast.error(errorMessage(err));
+      refresh();
+    },
   });
 
   const leaveAsHost = useMutation({
@@ -367,7 +398,9 @@ function HostControls({ party }: { party: PartyDetail }) {
     onSuccess: ({ deleted }) => {
       setLeaveHostOpen(false);
       refresh();
-      toast.info(deleted ? "Party deleted because you were its only member." : "You left the party.");
+      toast.info(
+        deleted ? "Party deleted because you were its only member." : "You left the party.",
+      );
       navigate("/my-parties");
     },
     onError: (err) => {
@@ -411,7 +444,7 @@ function HostControls({ party }: { party: PartyDetail }) {
       <Button
         variant="secondary"
         className="w-full"
-        onClick={() => party.memberCount > 1 ? setTransferOpen(true) : setLeaveHostOpen(true)}
+        onClick={() => (party.memberCount > 1 ? setTransferOpen(true) : setLeaveHostOpen(true))}
         disabled={partyStarted && party.memberCount === 1}
       >
         Leave party
@@ -419,7 +452,11 @@ function HostControls({ party }: { party: PartyDetail }) {
       {party.memberCount > 1 && (
         <p className="text-xs text-slate-500">Transfer the host role before leaving this party.</p>
       )}
-      {partyStarted && <p className="text-xs text-slate-500">Completed parties are preserved; host deletion by leaving is disabled.</p>}
+      {partyStarted && (
+        <p className="text-xs text-slate-500">
+          Completed parties are preserved; host deletion by leaving is disabled.
+        </p>
+      )}
       <ConfirmDialog
         open={transferOpen}
         title="Transfer the host role?"
@@ -431,10 +468,21 @@ function HostControls({ party }: { party: PartyDetail }) {
           else toast.error("There is no eligible participant to become host.");
         }}
       >
-        <p className="mb-3">The selected participant becomes host, and you become a regular participant.</p>
-        <SelectField label="New host" required value={selectedHostId} onChange={(e) => setNewHostId(e.target.value)}>
+        <p className="mb-3">
+          The selected participant becomes host, and you become a regular participant.
+        </p>
+        <SelectField
+          label="New host"
+          required
+          value={selectedHostId}
+          onChange={(e) => setNewHostId(e.target.value)}
+        >
           {candidates.length === 0 && <option value="">No eligible participants</option>}
-          {candidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
+          {candidates.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nickname}
+            </option>
+          ))}
         </SelectField>
       </ConfirmDialog>
       <ConfirmDialog
@@ -448,10 +496,21 @@ function HostControls({ party }: { party: PartyDetail }) {
           else toast.error("No eligible participant.");
         }}
       >
-        <p className="mb-3">Use this only if the member did not attend. A report adds 1 point and can trigger a temporary restriction.</p>
-        <SelectField label="Absent participant" required value={selectedNoShowId}
-          onChange={(e) => setNoShowUserId(e.target.value)}>
-          {noShowCandidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
+        <p className="mb-3">
+          Use this only if the member did not attend. A report adds 1 point and can trigger a
+          temporary restriction.
+        </p>
+        <SelectField
+          label="Absent participant"
+          required
+          value={selectedNoShowId}
+          onChange={(e) => setNoShowUserId(e.target.value)}
+        >
+          {noShowCandidates.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nickname}
+            </option>
+          ))}
         </SelectField>
       </ConfirmDialog>
       <ConfirmDialog
@@ -466,11 +525,21 @@ function HostControls({ party }: { party: PartyDetail }) {
           else toast.error("There is no eligible participant to remove.");
         }}
       >
-        <p className="mb-3">The selected participant will be removed and cannot rejoin this party.</p>
-        <SelectField label="Participant to remove" required value={selectedKickId}
-          onChange={(e) => setKickUserId(e.target.value)}>
+        <p className="mb-3">
+          The selected participant will be removed and cannot rejoin this party.
+        </p>
+        <SelectField
+          label="Participant to remove"
+          required
+          value={selectedKickId}
+          onChange={(e) => setKickUserId(e.target.value)}
+        >
           {candidates.length === 0 && <option value="">No eligible participants</option>}
-          {candidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
+          {candidates.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nickname}
+            </option>
+          ))}
         </SelectField>
       </ConfirmDialog>
       <ConfirmDialog

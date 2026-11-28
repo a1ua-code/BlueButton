@@ -13,13 +13,17 @@ export function PartyCard({ party, extra }: { party: PartySummary; extra?: React
   return (
     <Link
       to={`/parties/${party.id}`}
-      className={`group block rounded-xl border bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md ${
+      className={`party-invitation group block border bg-white p-5 transition hover:border-brand-500 ${
         joinable ? "border-slate-200" : "border-slate-200 opacity-75" // not joinable = visually muted (IR-09)
       }`}
     >
+      <div className="invitation-banner" aria-hidden="true">
+        <span>GAME NIGHT</span>
+        <span className="invitation-dice">⚄</span>
+      </div>
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="truncate font-semibold text-slate-900 group-hover:text-brand-700">
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words text-xl font-extrabold text-slate-900 group-hover:text-brand-700">
             {party.locked && (
               <span title="Password protected" aria-label="Password protected">
                 🔒{" "}
@@ -27,7 +31,7 @@ export function PartyCard({ party, extra }: { party: PartySummary; extra?: React
             )}
             {party.title}
           </h3>
-          <p className="truncate text-sm text-slate-500">{party.gameName}</p>
+          <p className="mt-1 break-words text-sm font-semibold text-brand-700">{party.gameName}</p>
         </div>
         <StatusBadge status={party.status} />
       </div>
@@ -46,7 +50,7 @@ export function PartyCard({ party, extra }: { party: PartySummary; extra?: React
         <div className="flex gap-2">
           <dt className="sr-only">Where</dt>
           <span aria-hidden="true">📍</span>
-          <dd className="truncate">
+          <dd className="min-w-0 break-words">
             {party.locationName}
             {party.region && <span className="text-slate-400"> · {party.region}</span>}
           </dd>
@@ -61,6 +65,14 @@ export function PartyCard({ party, extra }: { party: PartySummary; extra?: React
         <Badge>{AVAILABILITY_LABEL[party.availability]}</Badge>
         {party.beginnerFriendly && <Badge tone="green">Beginner friendly</Badge>}
         {extra}
+      </div>
+      <div className="invitation-footer">
+        <span>
+          {joinable
+            ? `${Math.max(0, seatsLeft)} ${seatsLeft === 1 ? "seat" : "seats"} open · You in?`
+            : "View game night"}
+        </span>
+        <span aria-hidden="true">✦</span>
       </div>
     </Link>
   );

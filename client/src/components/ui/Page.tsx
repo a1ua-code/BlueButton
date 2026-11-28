@@ -15,8 +15,10 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-slate-900">
+          {title}
+        </h1>
+        {subtitle && <p className="mt-2 text-base text-slate-500">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
@@ -33,7 +35,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+    <div className="rounded-3xl border-2 border-dashed border-brand-200 bg-brand-50 px-6 py-12 text-center">
       <p className="text-3xl" aria-hidden="true">
         🎲
       </p>
@@ -73,7 +75,7 @@ export function ComingSoon({
           🚧
         </p>
         <p className="mt-2 font-medium">This page is not built yet.</p>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-2 text-base text-slate-500">
           Owner: <strong>{owner}</strong> · SRS {requirements}
         </p>
       </Card>

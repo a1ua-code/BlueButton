@@ -6,9 +6,6 @@ import { ComingSoon, EmptyState } from "../components/ui";
 export const BookmarksPage = () => (
   <ComingSoon title="Bookmarks" owner="C" requirements="FR-74 to FR-79" />
 );
-export const CafesPage = () => (
-  <ComingSoon title="Board game cafes" owner="B" requirements="FR-123 to FR-129" />
-);
 export const ProfilePage = () => (
   <ComingSoon title="My profile" owner="A" requirements="FR-07, FR-08, FR-10" />
 );

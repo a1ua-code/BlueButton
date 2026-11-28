@@ -53,6 +53,7 @@ export const memberRoleEnum = pgEnum("member_role", ["HOST", "PARTICIPANT"]);
 /** REMOVED = kicked by the host, cannot rejoin (FR-69) */
 export const memberStateEnum = pgEnum("member_state", ["ACTIVE", "LEFT", "REMOVED"]);
 export const attendanceIncidentEnum = pgEnum("attendance_incident", ["NO_SHOW", "LATE_CANCEL"]);
+export const videoModerationEnum = pgEnum("video_moderation_status", ["AUTO", "APPROVED", "HIDDEN"]);
 export const messageTypeEnum = pgEnum("message_type", ["USER", "SYSTEM", "SETTLEMENT"]);
 export const settlementStatusEnum = pgEnum("settlement_status", ["OPEN", "COMPLETED", "CANCELLED"]);
 export const shareStatusEnum = pgEnum("share_status", ["UNPAID", "PAID", "CONFIRMED"]);
@@ -125,6 +126,26 @@ export const games = pgTable("games", {
   minPlayers: integer(),
   maxPlayers: integer(),
 });
+
+/** Owner: B. YouTube metadata only; no video content (FR-130-134). */
+export const gameVideos = pgTable("game_videos", {
+  id: uuid().primaryKey().defaultRandom(),
+  gameKey: text().notNull(), // catalog UUID or normalized custom name
+  gameId: uuid().references(() => games.id, { onDelete: "set null" }),
+  youtubeId: varchar({ length: 11 }).notNull(),
+  title: text().notNull(),
+  channel: text().notNull(),
+  url: text().notNull(),
+  thumbnail: text().notNull(),
+  duration: text(), // ISO 8601 (PT...)
+  language: varchar({ length: 10 }).notNull().default("unknown"),
+  moderationStatus: videoModerationEnum().notNull().default("AUTO"),
+  pinned: boolean().notNull().default(false),
+  fetchedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("game_videos_game_key_youtube_id_uq").on(t.gameKey, t.youtubeId),
+  index("game_videos_game_status_idx").on(t.gameKey, t.moderationStatus),
+]);
 
 /** Owner: B (create/edit/status/cancel). C updates memberCount/status inside join/leave. */
 export const parties = pgTable(

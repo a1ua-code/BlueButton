@@ -15,6 +15,13 @@
       "when": 1795525375702,
       "tag": "0001_greedy_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795857133282,
+      "tag": "0002_sudden_lightspeed",
+      "breakpoints": true
     }
   ]
 }

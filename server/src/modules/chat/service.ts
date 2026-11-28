@@ -4,7 +4,6 @@
 //  - images (FR-97), unread counts (FR-100), delete own message within 5 min (FR-101)
 //  - mentions (FR-102), mute (FR-94), 2-hour reminder message (FR-108)
 import { and, desc, eq, lt } from "drizzle-orm";
-import { config } from "../../config";
 import { db, messages, parties, users } from "../../db";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors";
 import { isMember } from "../participation/service";
@@ -46,15 +45,14 @@ export async function listMessages(partyId: string, before?: number, limit = 50)
   }));
 }
 
-/** FR-93: no new messages once the party is cancelled or `chatLockHours` after it started. */
+/** Revised FR-93 (client sign-off pending): chat remains writable for members after start. */
 async function assertWritable(partyId: string) {
   const [party] = await db
     .select({ status: parties.status, startAt: parties.startAt })
     .from(parties)
     .where(eq(parties.id, partyId));
   if (!party) throw notFound("Party");
-  const lockAt = party.startAt.getTime() + config.chatLockHours * 3600_000;
-  if (party.status === "CANCELLED" || Date.now() > lockAt) {
+  if (party.status === "CANCELLED") {
     throw conflict("CHAT_READ_ONLY", "This chat is read-only now.");
   }
 }

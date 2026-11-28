@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { errorMessage, fieldErrors } from "../api/client";
-import { cancelParty, fetchParty, joinParty, kickPartyMember, leaveParty, setPartyStatus, transferPartyHost } from "../api/parties";
+import { cancelParty, fetchParty, joinParty, kickPartyMember, reportPartyNoShow, leaveParty, setPartyStatus, transferPartyHost } from "../api/parties";
 import type { PartyDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -95,6 +95,7 @@ export function PartyDetailPage() {
                   <Badge tone={m.role === "HOST" ? "blue" : "gray"}>
                     {m.nickname}
                     {m.role === "HOST" && " (host)"}
+                    {party.isHost && m.noShow && " (no-show recorded)"}
                   </Badge>
                 </li>
               ))}
@@ -155,10 +156,10 @@ function JoinBox({ party }: { party: PartyDetail }) {
 
   const leave = useMutation({
     mutationFn: () => leaveParty(party.id),
-    onSuccess: () => {
+    onSuccess: (res) => {
       setLeaveOpen(false);
       refresh();
-      toast.info("You left the party.");
+      toast.info(res.lateCancellation ? "Late cancellation recorded (+0.5 penalty points)." : "You left the party.");
     },
     onError: (err) => {
       setLeaveOpen(false);
@@ -187,7 +188,11 @@ function JoinBox({ party }: { party: PartyDetail }) {
               onConfirm={() => leave.mutate()}
               onClose={() => setLeaveOpen(false)}
             >
-              You can join again later if there are still seats.
+              {new Date(party.startAt) > new Date() && new Date(party.startAt).getTime() - Date.now() < 12 * 60 * 60 * 1000
+                ? "This is a late cancellation (within 12 hours). It adds 0.5 penalty points."
+                : new Date(party.startAt) <= new Date()
+                  ? "After the game starts, you can leave only once 24 hours have passed."
+                  : "You can join again later if there are still seats."}
             </ConfirmDialog>
           </>
         )}
@@ -286,10 +291,15 @@ function HostControls({ party }: { party: PartyDetail }) {
   const [leaveHostOpen, setLeaveHostOpen] = useState(false);
   const [kickOpen, setKickOpen] = useState(false);
   const [kickUserId, setKickUserId] = useState("");
+  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [noShowUserId, setNoShowUserId] = useState("");
   const [newHostId, setNewHostId] = useState("");
   const candidates = (party.members ?? []).filter((m) => m.id !== party.host.id && m.role !== "HOST");
   const selectedHostId = candidates.some((m) => m.id === newHostId) ? newHostId : (candidates[0]?.id ?? "");
   const selectedKickId = candidates.some((m) => m.id === kickUserId) ? kickUserId : (candidates[0]?.id ?? "");
+  const noShowCandidates = candidates.filter((m) => !m.noShow);
+  const selectedNoShowId = noShowCandidates.some((m) => m.id === noShowUserId) ? noShowUserId : (noShowCandidates[0]?.id ?? "");
+  const partyStarted = new Date(party.startAt) <= new Date();
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["party", party.id] });
@@ -337,6 +347,19 @@ function HostControls({ party }: { party: PartyDetail }) {
     onError: (err) => { toast.error(errorMessage(err)); refresh(); },
   });
 
+  const noShow = useMutation({
+    mutationFn: () => reportPartyNoShow(party.id, selectedNoShowId),
+    onSuccess: ({ result }) => {
+      setNoShowOpen(false);
+      setNoShowUserId("");
+      refresh();
+      toast.info(result.suspendedUntil
+        ? `No-show recorded. Suspension until ${new Date(result.suspendedUntil).toLocaleDateString()}.`
+        : "No-show recorded (1 point total for this party).");
+    },
+    onError: (err) => { toast.error(errorMessage(err)); refresh(); },
+  });
+
   const leaveAsHost = useMutation({
     mutationFn: () => leaveParty(party.id),
     onSuccess: ({ deleted }) => {
@@ -373,6 +396,11 @@ function HostControls({ party }: { party: PartyDetail }) {
           Transfer host
         </Button>
       )}
+      {partyStarted && noShowCandidates.length > 0 && (
+        <Button variant="secondary" className="w-full" onClick={() => setNoShowOpen(true)}>
+          Record no-show
+        </Button>
+      )}
       {candidates.length > 0 && (
         <Button variant="danger" className="w-full" onClick={() => setKickOpen(true)}>
           Remove participant
@@ -382,12 +410,14 @@ function HostControls({ party }: { party: PartyDetail }) {
         variant="secondary"
         className="w-full"
         onClick={() => party.memberCount > 1 ? setTransferOpen(true) : setLeaveHostOpen(true)}
+        disabled={partyStarted && party.memberCount === 1}
       >
         Leave party
       </Button>
       {party.memberCount > 1 && (
         <p className="text-xs text-slate-500">Transfer the host role before leaving this party.</p>
       )}
+      {partyStarted && <p className="text-xs text-slate-500">Completed parties are preserved; host deletion by leaving is disabled.</p>}
       <ConfirmDialog
         open={transferOpen}
         title="Transfer the host role?"
@@ -403,6 +433,23 @@ function HostControls({ party }: { party: PartyDetail }) {
         <SelectField label="New host" required value={selectedHostId} onChange={(e) => setNewHostId(e.target.value)}>
           {candidates.length === 0 && <option value="">No eligible participants</option>}
           {candidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
+        </SelectField>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={noShowOpen}
+        title="Record a no-show?"
+        confirmLabel="Record no-show"
+        loading={noShow.isPending}
+        onClose={() => setNoShowOpen(false)}
+        onConfirm={() => {
+          if (selectedNoShowId) noShow.mutate();
+          else toast.error("No eligible participant.");
+        }}
+      >
+        <p className="mb-3">Use this only if the member did not attend. A report adds 1 point and can trigger a temporary restriction.</p>
+        <SelectField label="Absent participant" required value={selectedNoShowId}
+          onChange={(e) => setNoShowUserId(e.target.value)}>
+          {noShowCandidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
         </SelectField>
       </ConfirmDialog>
       <ConfirmDialog

@@ -22,6 +22,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  uniqueIndex,
   text,
   timestamp,
   uuid,
@@ -51,6 +52,7 @@ export const availabilityEnum = pgEnum("availability", ["OWNED", "CAFE", "SEEKIN
 export const memberRoleEnum = pgEnum("member_role", ["HOST", "PARTICIPANT"]);
 /** REMOVED = kicked by the host, cannot rejoin (FR-69) */
 export const memberStateEnum = pgEnum("member_state", ["ACTIVE", "LEFT", "REMOVED"]);
+export const attendanceIncidentEnum = pgEnum("attendance_incident", ["NO_SHOW", "LATE_CANCEL"]);
 export const messageTypeEnum = pgEnum("message_type", ["USER", "SYSTEM", "SETTLEMENT"]);
 export const settlementStatusEnum = pgEnum("settlement_status", ["OPEN", "COMPLETED", "CANCELLED"]);
 export const shareStatusEnum = pgEnum("share_status", ["UNPAID", "PAID", "CONFIRMED"]);
@@ -181,6 +183,7 @@ export const partyMembers = pgTable(
     state: memberStateEnum().notNull().default("ACTIVE"),
     joinedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     leftAt: timestamp({ withTimezone: true }),
+    noShow: boolean().notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.partyId, t.userId] }), index().on(t.userId, t.state)],
 );
@@ -210,6 +213,40 @@ export const hiddenParties = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.partyId] })],
 );
+
+/** Owner B. Duration and escalation history are kept even after expiry. */
+export const attendanceSuspensions = pgTable("attendance_suspensions", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid().notNull().references(() => users.id),
+  level: integer().notNull(),
+  durationDays: integer().notNull(),
+  startsAt: timestamp({ withTimezone: true }).notNull(),
+  endsAt: timestamp({ withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+  revokedAt: timestamp({ withTimezone: true }),
+  revokedById: uuid().references(() => users.id),
+}, (t) => [index("attendance_ban_user_start_idx").on(t.userId, t.startsAt)]);
+
+/** Owner B. Points use half-unit integers: late cancellation=1, no-show=2. */
+export const attendanceIncidents = pgTable("attendance_incidents", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid().notNull().references(() => users.id),
+  // Keep historical penalties even when a pre-start party is deleted.
+  partyId: uuid().references(() => parties.id, { onDelete: "set null" }),
+  partyTitle: text().notNull(),
+  partyStartAt: timestamp({ withTimezone: true }).notNull(),
+  type: attendanceIncidentEnum().notNull(),
+  pointsHalfUnits: integer().notNull(),
+  occurredAt: timestamp({ withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+  appliedSuspensionId: uuid().references(() => attendanceSuspensions.id, { onDelete: "set null" }),
+  revokedAt: timestamp({ withTimezone: true }),
+  revokedById: uuid().references(() => users.id),
+  reviewReason: text(),
+}, (t) => [
+  uniqueIndex("attendance_one_incident_type_per_party").on(t.userId, t.partyId, t.type),
+  index("attendance_user_occurred_idx").on(t.userId, t.occurredAt),
+]);
 
 // ---------------------------------------------------------------- D: chat and settlements
 

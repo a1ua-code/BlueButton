@@ -72,6 +72,11 @@ export const kickPartyMember = (id: string, userId: string) =>
     `/parties/${id}/members/${userId}`, { method: "DELETE" },
   );
 
+export const reportPartyNoShow = (id: string, userId: string) =>
+  api<{ result: { userId: string; pointsAdded: number; suspendedUntil: string | null } }>(
+    `/parties/${id}/members/${userId}/no-show`, { method: "POST" },
+  );
+
 // ---- C: browsing and joining
 
 export type PartyFilters = {
@@ -120,7 +125,7 @@ export const joinParty = (id: string, password?: string) =>
   });
 
 export const leaveParty = (id: string) =>
-  api<{ deleted: boolean; status?: PartyStatus }>(`/parties/${id}/leave`, { method: "POST" });
+  api<{ deleted: boolean; status?: PartyStatus; lateCancellation?: { pointsAdded: number; suspendedUntil: string | null } | null }>(`/parties/${id}/leave`, { method: "POST" });
 
 export const addBookmark = (id: string) =>
   api<{ bookmarked: boolean }>(`/parties/${id}/bookmark`, { method: "PUT" });

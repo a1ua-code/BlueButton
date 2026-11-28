@@ -35,7 +35,7 @@ export type PartySummary = {
   locked: boolean; // password-protected
 };
 
-export type PartyMember = { id: string; nickname: string; role: "HOST" | "PARTICIPANT" };
+export type PartyMember = { id: string; nickname: string; role: "HOST" | "PARTICIPANT"; noShow: boolean };
 
 export type PartyDetail = PartySummary & {
   description: string | null;

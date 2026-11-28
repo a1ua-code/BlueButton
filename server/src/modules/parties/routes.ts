@@ -4,7 +4,8 @@ import { param } from "../../lib/params";
 import { Router } from "express";
 import { z } from "zod";
 import { parse } from "../../lib/validate";
-import { currentUser, requireUser } from "../../middleware/auth";
+import { currentUser, requireAdmin, requireUser } from "../../middleware/auth";
+import * as attendance from "./attendanceService";
 import { createPartySchema, editPartySchema, hostStatusSchema, transferHostSchema } from "./schemas";
 import * as parties from "./service";
 
@@ -44,6 +45,26 @@ partiesHostRouter.patch("/:id", requireUser, async (req, res) => {
 partiesHostRouter.post("/:id/transfer-host", requireUser, async (req, res) => {
   const { newHostUserId } = parse(transferHostSchema, req.body);
   res.json({ transfer: await parties.transferHost(param(req, "id"), currentUser(req), newHostUserId) });
+});
+// FR-70: use distinct routes to keep attendance logic inside workstream B.
+partiesHostRouter.post("/:id/members/:userId/no-show", requireUser, async (req, res) => {
+  res.json({ result: await attendance.reportNoShow(
+    param(req, "id"), currentUser(req), parse(z.uuid(), param(req, "userId")),
+  ) });
+});
+partiesHostRouter.get("/attendance/me", requireUser, async (req, res) => {
+  res.json(await attendance.myAttendance(currentUser(req).id));
+});
+// Admin APIs for workstream A to attach to its dashboard.
+partiesHostRouter.get("/attendance/admin/reports", requireAdmin, async (_req, res) => {
+  res.json(await attendance.adminAttendanceReports());
+});
+partiesHostRouter.post("/attendance/admin/incidents/:incidentId/reverse", requireAdmin, async (req, res) => {
+  const reason = parse(z.object({ reason: z.string().trim().min(3).max(1000) }), req.body);
+  res.json(await attendance.reverseIncident(currentUser(req), parse(z.uuid(), param(req, "incidentId")), reason.reason));
+});
+partiesHostRouter.post("/attendance/admin/users/:userId/lift", requireAdmin, async (req, res) => {
+  res.json(await attendance.liftSuspensions(currentUser(req), parse(z.uuid(), param(req, "userId"))));
 });
 partiesHostRouter.delete("/:id/members/:userId", requireUser, async (req, res) => {
   res.json({ result: await parties.kickParticipant(

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { errorMessage, fieldErrors } from "../api/client";
-import { cancelParty, fetchParty, joinParty, leaveParty, setPartyStatus } from "../api/parties";
+import { cancelParty, fetchParty, joinParty, leaveParty, setPartyStatus, transferPartyHost } from "../api/parties";
 import type { PartyDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -16,6 +16,7 @@ import {
   ErrorBox,
   LoadingBlock,
   StatusBadge,
+  SelectField,
   TextField,
   useToast,
 } from "../components/ui";
@@ -281,10 +282,16 @@ function HostControls({ party }: { party: PartyDetail }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [leaveHostOpen, setLeaveHostOpen] = useState(false);
+  const [newHostId, setNewHostId] = useState("");
+  const candidates = (party.members ?? []).filter((m) => m.id !== party.host.id && m.role !== "HOST");
+  const selectedHostId = candidates.some((m) => m.id === newHostId) ? newHostId : (candidates[0]?.id ?? "");
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["party", party.id] });
     queryClient.invalidateQueries({ queryKey: ["parties"] });
+    queryClient.invalidateQueries({ queryKey: ["my-parties"] });
   };
 
   const toggle = useMutation({
@@ -306,6 +313,31 @@ function HostControls({ party }: { party: PartyDetail }) {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
+  const transfer = useMutation({
+    mutationFn: () => transferPartyHost(party.id, selectedHostId),
+    onSuccess: ({ transfer: result }) => {
+      setTransferOpen(false);
+      refresh();
+      toast.success(`${result.newHostNickname} is now the host.`);
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+
+  const leaveAsHost = useMutation({
+    mutationFn: () => leaveParty(party.id),
+    onSuccess: ({ deleted }) => {
+      setLeaveHostOpen(false);
+      refresh();
+      toast.info(deleted ? "Party deleted because you were its only member." : "You left the party.");
+      navigate("/my-parties");
+    },
+    onError: (err) => {
+      setLeaveHostOpen(false);
+      toast.error(errorMessage(err));
+      refresh();
+    },
+  });
+
   if (party.status === "CANCELLED") return null;
 
   return (
@@ -322,6 +354,49 @@ function HostControls({ party }: { party: PartyDetail }) {
       <ButtonLink variant="secondary" className="w-full" to={`/parties/${party.id}/edit`}>
         Edit party
       </ButtonLink>
+      {candidates.length > 0 && (
+        <Button variant="secondary" className="w-full" onClick={() => setTransferOpen(true)}>
+          Transfer host
+        </Button>
+      )}
+      <Button
+        variant="secondary"
+        className="w-full"
+        onClick={() => party.memberCount > 1 ? setTransferOpen(true) : setLeaveHostOpen(true)}
+      >
+        Leave party
+      </Button>
+      {party.memberCount > 1 && (
+        <p className="text-xs text-slate-500">Transfer the host role before leaving this party.</p>
+      )}
+      <ConfirmDialog
+        open={transferOpen}
+        title="Transfer the host role?"
+        confirmLabel="Transfer host"
+        loading={transfer.isPending}
+        onClose={() => setTransferOpen(false)}
+        onConfirm={() => {
+          if (selectedHostId) transfer.mutate();
+          else toast.error("There is no eligible participant to become host.");
+        }}
+      >
+        <p className="mb-3">The selected participant becomes host, and you become a regular participant.</p>
+        <SelectField label="New host" required value={selectedHostId} onChange={(e) => setNewHostId(e.target.value)}>
+          {candidates.length === 0 && <option value="">No eligible participants</option>}
+          {candidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
+        </SelectField>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={leaveHostOpen}
+        title="Delete this party and leave?"
+        confirmLabel="Delete and leave"
+        danger
+        loading={leaveAsHost.isPending}
+        onConfirm={() => leaveAsHost.mutate()}
+        onClose={() => setLeaveHostOpen(false)}
+      >
+        You are the only member. Leaving will permanently delete this party and its chat.
+      </ConfirmDialog>
       <Button variant="danger" className="w-full" onClick={() => setCancelOpen(true)}>
         Cancel party
       </Button>

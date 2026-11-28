@@ -62,6 +62,11 @@ export const setPartyStatus = (id: string, status: "RECRUITING" | "CLOSED") =>
 export const cancelParty = (id: string) =>
   api<{ status: PartyStatus }>(`/parties/${id}/cancel`, { method: "POST" });
 
+export const transferPartyHost = (id: string, newHostUserId: string) =>
+  api<{ transfer: { newHostId: string; newHostNickname: string } }>(`/parties/${id}/transfer-host`, {
+    method: "POST", body: { newHostUserId },
+  });
+
 // ---- C: browsing and joining
 
 export type PartyFilters = {
@@ -110,7 +115,7 @@ export const joinParty = (id: string, password?: string) =>
   });
 
 export const leaveParty = (id: string) =>
-  api<{ status: PartyStatus }>(`/parties/${id}/leave`, { method: "POST" });
+  api<{ deleted: boolean; status?: PartyStatus }>(`/parties/${id}/leave`, { method: "POST" });
 
 export const addBookmark = (id: string) =>
   api<{ bookmarked: boolean }>(`/parties/${id}/bookmark`, { method: "PUT" });

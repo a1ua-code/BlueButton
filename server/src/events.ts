@@ -14,6 +14,7 @@ export type Events = {
   "party.updated": { partyId: string; changes: string[] };
   "party.cancelled": { partyId: string; byUserId: string };
   "party.status_changed": { partyId: string; from: PartyStatus; to: PartyStatus };
+  "host.transferred": { partyId: string; previousHostId: string; previousHostNickname: string; newHostId: string; newHostNickname: string };
   "member.joined": { partyId: string; userId: string; nickname: string };
   "member.left": { partyId: string; userId: string; nickname: string; removed: boolean };
 };

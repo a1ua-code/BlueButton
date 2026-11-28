@@ -5,7 +5,7 @@ import { Router } from "express";
 import { notYet } from "../../lib/notYet";
 import { parse } from "../../lib/validate";
 import { currentUser, requireUser } from "../../middleware/auth";
-import { createPartySchema, editPartySchema, hostStatusSchema } from "./schemas";
+import { createPartySchema, editPartySchema, hostStatusSchema, transferHostSchema } from "./schemas";
 import * as parties from "./service";
 
 export const gamesRouter = Router();
@@ -41,7 +41,10 @@ partiesHostRouter.patch("/:id", requireUser, async (req, res) => {
 });
 
 // Other planned routes still return 501 until implemented.
-partiesHostRouter.post("/:id/transfer-host", requireUser, notYet("Transferring host (FR-64)"));
+partiesHostRouter.post("/:id/transfer-host", requireUser, async (req, res) => {
+  const { newHostUserId } = parse(transferHostSchema, req.body);
+  res.json({ transfer: await parties.transferHost(param(req, "id"), currentUser(req), newHostUserId) });
+});
 partiesHostRouter.delete(
   "/:id/members/:userId",
   requireUser,

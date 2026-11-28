@@ -98,6 +98,10 @@ function registerSystemMessages() {
     postSystemMessage(e.partyId, `Party settings changed: ${e.changes.join("; ")}.`),
   );
 
+  events.on("host.transferred", (e) =>
+    postSystemMessage(e.partyId, `${e.previousHostNickname} transferred the host role to ${e.newHostNickname}.`),
+  );
+
   events.on("member.joined", (e) =>
     postSystemMessage(e.partyId, `${e.nickname} joined the party.`),
   );

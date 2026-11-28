@@ -6,8 +6,8 @@
 //  - map/address picker and cafe suggestions (FR-37, FR-38, FR-123 to FR-129)
 //  - recurring parties (FR-39, MAY)
 import bcrypt from "bcryptjs";
-import { asc, eq } from "drizzle-orm";
-import { db, games, parties, partyMembers, type PartyStatus } from "../../db";
+import { and, asc, eq } from "drizzle-orm";
+import { db, games, parties, partyMembers, users, type PartyStatus } from "../../db";
 import { events } from "../../events";
 import { conflict, forbidden, notFound } from "../../lib/errors";
 import type { AuthUser } from "../../middleware/auth";
@@ -159,6 +159,48 @@ export async function editParty(partyId: string, user: AuthUser, input: EditPart
     });
   }
   return { id: partyId, status: result.nextStatus, changes: result.changes };
+}
+
+/** FR-64: transfer ownership and both member roles in one locked transaction. */
+export async function transferHost(partyId: string, user: AuthUser, newHostUserId: string) {
+  const result = await db.transaction(async (tx) => {
+    // All join/leave/edit operations lock this same party row first (NFR-17).
+    const [party] = await tx.select({ hostId: parties.hostId, status: parties.status })
+      .from(parties).where(eq(parties.id, partyId)).for("update");
+    if (!party) throw notFound("Party");
+    // FR-64 is host-only (not admin impersonation).
+    if (party.hostId !== user.id) throw forbidden("Only the current host can transfer the host role.");
+    if (party.status === "CANCELLED") throw conflict("PARTY_CANCELLED", "Cannot transfer a cancelled party.");
+    if (newHostUserId === user.id) throw conflict("ALREADY_HOST", "Choose another member.");
+
+    const [target] = await tx.select({
+      id: partyMembers.userId, state: partyMembers.state, nickname: users.nickname,
+    }).from(partyMembers).innerJoin(users, eq(users.id, partyMembers.userId))
+      .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, newHostUserId)));
+    if (!target || target.state !== "ACTIVE") {
+      throw conflict("NEW_HOST_NOT_ACTIVE_MEMBER", "Select an active participant of this party.");
+    }
+
+    const [oldMember] = await tx.select({ role: partyMembers.role, state: partyMembers.state })
+      .from(partyMembers).where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, user.id)));
+    if (!oldMember || oldMember.state !== "ACTIVE" || oldMember.role !== "HOST") {
+      throw conflict("HOST_MEMBERSHIP_INVALID", "The current host membership is inconsistent.");
+    }
+
+    await tx.update(partyMembers).set({ role: "PARTICIPANT" })
+      .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, user.id)));
+    await tx.update(partyMembers).set({ role: "HOST" })
+      .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, newHostUserId)));
+    await tx.update(parties).set({ hostId: newHostUserId }).where(eq(parties.id, partyId));
+    return { newHostId: newHostUserId, newHostNickname: target.nickname };
+  });
+
+  // Chat subscribers are notified only after the transaction commits (FR-106).
+  events.emit("host.transferred", {
+    partyId, previousHostId: user.id, previousHostNickname: user.nickname,
+    newHostId: result.newHostId, newHostNickname: result.newHostNickname,
+  });
+  return result;
 }
 
 /** Host switches between Recruiting and Closed (FR-67). */

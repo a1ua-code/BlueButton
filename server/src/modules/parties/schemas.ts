@@ -40,6 +40,10 @@ export const editPartySchema = createPartySchema.safeExtend({
 });
 export type EditPartyInput = z.infer<typeof editPartySchema>;
 
+export const transferHostSchema = z.object({
+  newHostUserId: z.string().uuid("Select an active party member."),
+});
+
 export const hostStatusSchema = z.object({
   status: z.enum(["RECRUITING", "CLOSED"]),
 });

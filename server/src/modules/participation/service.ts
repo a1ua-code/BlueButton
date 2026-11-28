@@ -253,7 +253,14 @@ export async function leaveParty(partyId: string, user: AuthUser) {
     if (!member || member.state !== "ACTIVE")
       throw conflict("NOT_MEMBER", "You are not in this party.");
     if (member.role === "HOST") {
-      throw conflict("HOST_CANNOT_LEAVE", "Transfer the host role or cancel the party first.");
+      // FR-65: do not orphan parties with participants.
+      if (party.memberCount !== 1) {
+        throw conflict("HOST_TRANSFER_REQUIRED", "Transfer the host role to another member before leaving.");
+      }
+      // FR-66: sole-member host leaving deletes the whole party. Cascading FKs
+      // remove memberships/messages/bookmarks/settlements in the same transaction.
+      await tx.delete(parties).where(eq(parties.id, partyId));
+      return { deleted: true as const, status: party.status, previousStatus: party.status };
     }
 
     await tx
@@ -263,8 +270,10 @@ export async function leaveParty(partyId: string, user: AuthUser) {
     const memberCount = party.memberCount - 1;
     const status = statusAfterCountChange(party.status, memberCount, party.capacity);
     await tx.update(parties).set({ memberCount, status }).where(eq(parties.id, partyId));
-    return { status, previousStatus: party.status };
+    return { deleted: false as const, status, previousStatus: party.status };
   });
+
+  if (result.deleted) return { deleted: true as const };
 
   events.emit("member.left", { partyId, userId: user.id, nickname: user.nickname, removed: false });
   if (result.previousStatus !== result.status) {
@@ -274,7 +283,7 @@ export async function leaveParty(partyId: string, user: AuthUser) {
       to: result.status,
     });
   }
-  return { status: result.status };
+  return { deleted: false as const, status: result.status };
 }
 
 /** My Parties page (FR-56 to FR-58): upcoming soonest first, past (and cancelled) separately. */

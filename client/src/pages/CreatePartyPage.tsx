@@ -73,7 +73,8 @@ export function CreatePartyPage() {
           ? e.target.checked
           : e.target.value;
       setForm((f) => ({
-        ...f, [key]: value,
+        ...f,
+        [key]: value,
         // A manually changed venue must not retain stale Kakao coordinates.
         ...(key === "locationName" || key === "address" ? { lat: undefined, lng: undefined } : {}),
       }));
@@ -81,8 +82,14 @@ export function CreatePartyPage() {
     };
 
   function pickLocation(location: SelectedLocation) {
-    setForm((f) => ({ ...f, locationName: location.name, address: location.address,
-      lat: location.lat, lng: location.lng, region: "" }));
+    setForm((f) => ({
+      ...f,
+      locationName: location.name,
+      address: location.address,
+      lat: location.lat,
+      lng: location.lng,
+      region: "",
+    }));
     setErrors((previous) => ({ ...previous, locationName: "", address: "" }));
   }
 
@@ -145,19 +152,24 @@ export function CreatePartyPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="create-wizard mx-auto max-w-3xl">
+      <p className="eyebrow mb-3 text-brand-700">MAKE ROOM FOR A GREAT NIGHT</p>
       <PageHeader
         title="Create a party"
-        subtitle="Three quick steps. Fields marked * are required."
+        subtitle="Pick a game, gather your people, and let the good times roll. Fields marked * are required."
       />
 
       {/* Progress indicator (IR-20) */}
-      <ol className="mb-6 grid grid-cols-3 gap-2" aria-label="Progress">
+      <ol className="mb-6 grid grid-cols-3 gap-2 sm:gap-4" aria-label="Progress">
         {STEPS.map((label, i) => (
-          <li key={label}>
+          <li
+            key={label}
+            aria-current={i === step ? "step" : undefined}
+            className={`wizard-step ${i === step ? "wizard-step-active" : ""}`}
+          >
             <div className={`h-1.5 rounded-full ${i <= step ? "bg-brand-600" : "bg-slate-200"}`} />
             <p
-              className={`mt-1 text-xs ${i === step ? "font-semibold text-brand-700" : "text-slate-500"}`}
+              className={`mt-3 text-sm ${i === step ? "font-semibold text-brand-700" : "text-slate-500"}`}
             >
               {i + 1}. {label}
             </p>
@@ -166,6 +178,15 @@ export function CreatePartyPage() {
       </ol>
 
       <Card>
+        <div className="wizard-intro">
+          <span aria-hidden="true">{["⚄", "◷", "✦"][step]}</span>
+          <div>
+            <p className="eyebrow text-brand-700">STEP {step + 1} OF 3</p>
+            <h2>
+              {["What’s hitting the table?", "Set the scene.", "Make it your kind of night."][step]}
+            </h2>
+          </div>
+        </div>
         <form
           className="space-y-5"
           noValidate
@@ -234,7 +255,7 @@ export function CreatePartyPage() {
                   {(Object.keys(AVAILABILITY_LABEL) as Availability[]).map((a) => (
                     <label
                       key={a}
-                      className={`cursor-pointer rounded-lg border p-3 text-sm ${
+                      className={`cursor-pointer rounded-2xl border-2 p-4 text-sm transition-colors ${
                         form.availability === a
                           ? "border-brand-600 bg-brand-50"
                           : "border-slate-200 hover:bg-slate-50"
@@ -272,7 +293,8 @@ export function CreatePartyPage() {
               <PartyLocationPicker cafeMode={form.availability === "CAFE"} onPick={pickLocation} />
               {form.lat !== undefined && form.lng !== undefined && (
                 <p className="text-xs text-brand-700" role="status">
-                  Mapped meeting location selected. The venue coordinates will be saved with this party.
+                  Mapped meeting location selected. The venue coordinates will be saved with this
+                  party.
                 </p>
               )}
               <TextField
@@ -346,7 +368,7 @@ export function CreatePartyPage() {
                 />
               )}
 
-              <div className="rounded-lg bg-slate-50 p-4 text-sm">
+              <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 text-sm">
                 <h3 className="mb-2 font-semibold">Review</h3>
                 <ul className="space-y-1 text-slate-700">
                   <li>
@@ -356,7 +378,9 @@ export function CreatePartyPage() {
                   <li>
                     📍 {form.locationName}
                     {form.region && ` · ${form.region}`}
-                    {form.address && <span className="block text-xs text-slate-500">{form.address}</span>}
+                    {form.address && (
+                      <span className="block text-xs text-slate-500">{form.address}</span>
+                    )}
                   </li>
                   <li>
                     👥 {form.capacity} players ·{" "}
@@ -369,10 +393,10 @@ export function CreatePartyPage() {
 
           <div className="flex justify-between gap-2 border-t border-slate-100 pt-4">
             <Button variant="ghost" onClick={() => (step === 0 ? navigate(-1) : setStep(step - 1))}>
-              {step === 0 ? "Cancel" : "← Back"}
+              {step === 0 ? "Cancel" : "Back"}
             </Button>
             <Button type="submit" loading={submitting}>
-              {step < 2 ? "Next →" : "Create party"}
+              {step < 2 ? "Next step" : "Create party"}
             </Button>
           </div>
         </form>

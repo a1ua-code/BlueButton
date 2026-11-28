@@ -1,29 +1,379 @@
-/* Global styles. Most styling is done with Tailwind classes directly in components:
-   https://tailwindcss.com/docs  (e.g. className="rounded-lg bg-white p-4 shadow-sm")
-
-   The brand colors below create classes like bg-brand-600, text-brand-700, border-brand-200.
-   Change them here and the whole app follows. */
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-
+  --color-brand-50: #f9f6ff;
+  --color-brand-100: #eee5ff;
+  --color-brand-200: #d9c5ff;
+  --color-brand-300: #c5a5ff;
+  --color-brand-400: #b18bff;
+  --color-brand-500: #a477ff;
+  --color-brand-600: #6348cb;
+  --color-brand-700: #5136b1;
+  --color-brand-800: #1b0d39;
+  --color-coral: #ff716b;
+  --color-sunshine: #ffd166;
+  --color-mint: #a7e7cb;
+  --color-slate-900: #1b0d39;
+  --color-slate-800: #302246;
+  --color-slate-700: #4b3e60;
+  --color-slate-600: #615572;
+  --color-slate-500: #736680;
+  --color-slate-400: #7b7088;
+  --color-slate-300: #d5cddd;
+  --color-slate-200: #e7e0ef;
+  --color-slate-100: #f1ecf8;
+  --color-slate-50: #f9f6ff;
   --font-sans:
     "Pretendard", "Inter", ui-sans-serif, system-ui, "Apple SD Gothic Neo", "Malgun Gothic",
     sans-serif;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  margin: 0;
+  background: #f9f6ff;
+  color: #1b0d39;
+  -webkit-font-smoothing: antialiased;
 }
-
-/* Visible keyboard focus everywhere (accessibility, SRS IR-35 spirit) */
+::selection {
+  background: #d9c5ff;
+  color: #1b0d39;
+}
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-brand-600;
+  outline: 3px solid #6348cb;
+  outline-offset: 4px;
+}
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled),
+select {
+  cursor: pointer;
+}
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236348CB' stroke-width='2'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  padding-right: 2.5rem;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  padding: 12px 20px;
+  background: white;
+  border-radius: 12px;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid #1b0d39;
+  border-radius: 13px;
+  background: #a477ff;
+  color: #1b0d39;
+  font-size: 36px;
+  line-height: 1;
+  transform: rotate(-8deg);
+  box-shadow: 2px 3px 0 #1b0d39;
+}
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  line-height: 1.6;
+}
+.clubhouse-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: center;
+  min-height: 470px;
+  padding: 48px;
+  border: 1px solid #35204f;
+  border-radius: 32px;
+  background: #1b0d39;
+  color: #f9f6ff;
+  overflow: hidden;
+}
+.hero-copy {
+  position: relative;
+  z-index: 1;
+}
+.hero-copy .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #d9c5ff;
+}
+.hero-spark {
+  color: #ffd166;
+  font-size: 24px;
+}
+.hero-copy h1 {
+  margin-top: 20px;
+  font-size: clamp(2.6rem, 4.7vw, 4.1rem);
+  font-weight: 850;
+  letter-spacing: -0.055em;
+  line-height: 1.05;
+  max-width: 560px;
+}
+.hero-copy h1 span {
+  color: #a477ff;
+}
+.hero-description {
+  max-width: 425px;
+  margin: 22px 0 28px;
+  color: #e0d5ef;
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.hero-copy a {
+  min-height: 50px;
+}
+.hero-copy a:first-child {
+  background: #a477ff;
+  color: #1b0d39;
+  box-shadow: 0 4px 0 #0c041c;
+}
+.hero-copy a:first-child:hover {
+  background: #c5a5ff;
+}
+.hero-find {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bca8dc;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 700;
+}
+.hero-find:hover {
+  background: #35204f;
+}
+.hero-copy :focus-visible {
+  outline-color: #ffd166;
+}
+.hero-footnote {
+  display: flex;
+  gap: 8px;
+  margin-top: 26px;
+  font-size: 0.8125rem;
+  color: #d9c5ff;
+}
+.hero-footnote span {
+  color: #a7e7cb;
+}
+.clubhouse-art {
+  width: 100%;
+  max-width: 510px;
+  justify-self: center;
+  transform: rotate(-3deg);
+}
+.clubhouse-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: center;
+  gap: 12px 20px;
+  margin: 16px 4px 48px;
+  padding: 16px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid #d9c5ff;
+}
+.clubhouse-strip > span:nth-child(even) {
+  color: #6348cb;
+  font-size: 22px;
+}
+.party-discovery {
+  scroll-margin-top: 110px;
+}
+.discovery-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.discovery-heading h2 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-weight: 850;
+  letter-spacing: -0.04em;
+}
+.discovery-heading > p {
+  font-size: 0.875rem;
+  color: #615572;
+}
+.search-bar {
+  padding: 10px;
+  border: 1px solid #e7e0ef;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 16px #1b0d3904;
+}
+.search-bar input {
+  border-color: transparent;
+  background: #f9f6ff;
+  box-shadow: none;
+  min-width: 0;
+}
+.clubhouse-card {
+  box-shadow: 0 5px 20px #1b0d3905;
+}
+.party-invitation {
+  height: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+  box-shadow: 0 5px 0 #e7e0ef;
+}
+.invitation-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 78px;
+  margin: -20px -20px 20px;
+  padding: 16px 20px;
+  background: #eee5ff;
+  border-bottom: 1px solid #d9c5ff;
+  color: #5136b1;
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  font-weight: 850;
+  background-image: radial-gradient(#a477ff66 1px, transparent 1px);
+  background-size: 13px 13px;
+}
+.invitation-dice {
+  display: grid;
+  place-items: center;
+  height: 50px;
+  width: 50px;
+  font-size: 48px;
+  line-height: 1;
+  color: #1b0d39;
+  background: #a477ff;
+  border: 2px solid #1b0d39;
+  border-radius: 12px;
+  transform: rotate(12deg);
+  box-shadow: 3px 3px 0 #1b0d39;
+}
+.party-invitation:nth-child(3n + 2) .invitation-dice {
+  background: #ffd166;
+  transform: rotate(-9deg);
+}
+.party-invitation:nth-child(3n) .invitation-dice {
+  background: #a7e7cb;
+}
+.invitation-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 2px dashed #e7e0ef;
+  font-size: 0.8125rem;
+  font-weight: 750;
+  color: #6348cb;
+}
+.party-detail-main {
+  border-top: 7px solid #a477ff;
+}
+.party-facts dd {
+  overflow-wrap: anywhere;
+}
+.join-panel {
+  border: 2px solid #d9c5ff;
+}
+.wizard-step {
+  border-radius: 16px;
+  padding: 14px 12px;
+  background: #eee5ff;
+}
+.wizard-step-active {
+  background: white;
+  box-shadow: 0 0 0 2px #6348cb;
+}
+.wizard-intro {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #eee5ff;
+}
+.wizard-intro > span {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #eee5ff;
+  color: #6348cb;
+  font-size: 36px;
+  transform: rotate(-5deg);
+}
+.wizard-intro h2 {
+  margin-top: 4px;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .party-invitation:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 9px 0 #d9c5ff;
+  }
+}
+@media (min-width: 1024px) {
+  .party-sidebar {
+    position: sticky;
+    top: 112px;
+  }
+}
+@media (max-width: 767px) {
+  .clubhouse-hero {
+    grid-template-columns: 1fr;
+    padding: 30px 24px 8px;
+    border-radius: 24px;
+  }
+  .hero-copy h1 {
+    max-width: 440px;
+    font-size: clamp(2.5rem, 9vw, 3.6rem);
+  }
+  .hero-description {
+    font-size: 1rem;
+  }
+  .clubhouse-art {
+    max-width: 330px;
+    margin-top: 6px;
+  }
+  .clubhouse-strip {
+    margin-bottom: 30px;
+    font-size: 0.625rem;
+  }
+  .clubhouse-strip > span:nth-child(n + 4) {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

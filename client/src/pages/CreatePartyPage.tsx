@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { errorMessage, fieldErrors } from "../api/client";
 import { createParty, fetchGames } from "../api/parties";
+import { PartyLocationPicker, type SelectedLocation } from "../components/PartyLocationPicker";
 import type { Availability } from "../api/types";
 import {
   Button,
@@ -52,7 +53,10 @@ export function CreatePartyPage() {
     gameName: "",
     startAt: "",
     locationName: "",
+    address: "",
     region: "",
+    lat: undefined as number | undefined,
+    lng: undefined as number | undefined,
     capacity: "4",
     availability: "" as Availability | "",
     availabilityNote: "",
@@ -68,9 +72,19 @@ export function CreatePartyPage() {
         e.target instanceof HTMLInputElement && e.target.type === "checkbox"
           ? e.target.checked
           : e.target.value;
-      setForm((f) => ({ ...f, [key]: value }));
+      setForm((f) => ({
+        ...f, [key]: value,
+        // A manually changed venue must not retain stale Kakao coordinates.
+        ...(key === "locationName" || key === "address" ? { lat: undefined, lng: undefined } : {}),
+      }));
       setErrors((er) => ({ ...er, [key]: "" }));
     };
+
+  function pickLocation(location: SelectedLocation) {
+    setForm((f) => ({ ...f, locationName: location.name, address: location.address,
+      lat: location.lat, lng: location.lng, region: "" }));
+    setErrors((previous) => ({ ...previous, locationName: "", address: "" }));
+  }
 
   const isOtherGame = form.gameId === OTHER_GAME;
   const gameLabel = isOtherGame
@@ -107,7 +121,10 @@ export function CreatePartyPage() {
         capacity: Number(form.capacity),
         startAt: localInputToIso(form.startAt),
         locationName: form.locationName.trim(),
+        address: form.address.trim() || undefined,
         region: form.region.trim() || undefined,
+        lat: form.lat,
+        lng: form.lng,
         availability: form.availability as Availability,
         availabilityNote: form.availabilityNote.trim() || undefined,
         description: form.description.trim() || undefined,
@@ -209,32 +226,6 @@ export function CreatePartyPage() {
                 onChange={set("startAt")}
                 error={errors.startAt}
               />
-              <TextField
-                label="Meeting place"
-                required
-                value={form.locationName}
-                onChange={set("locationName")}
-                error={errors.locationName}
-                placeholder="e.g. N1 lounge, or a cafe name"
-              />
-              <TextField
-                label="Area"
-                value={form.region}
-                onChange={set("region")}
-                error={errors.region}
-                placeholder="e.g. KAIST, Yuseong"
-                hint="Helps people filter by location."
-              />
-              <TextField
-                label="Number of players (including you)"
-                type="number"
-                min={2}
-                max={50}
-                required
-                value={form.capacity}
-                onChange={set("capacity")}
-                error={errors.capacity}
-              />
               <fieldset>
                 <legend className="mb-2 text-sm font-medium text-slate-700">
                   Who brings the game? <span className="text-red-600">*</span>
@@ -278,6 +269,45 @@ export function CreatePartyPage() {
                   placeholder="e.g. renting from the club room"
                 />
               )}
+              <PartyLocationPicker cafeMode={form.availability === "CAFE"} onPick={pickLocation} />
+              {form.lat !== undefined && form.lng !== undefined && (
+                <p className="text-xs text-brand-700" role="status">
+                  Mapped meeting location selected. The venue coordinates will be saved with this party.
+                </p>
+              )}
+              <TextField
+                label="Meeting place"
+                required
+                value={form.locationName}
+                onChange={set("locationName")}
+                error={errors.locationName}
+                placeholder="e.g. N1 lounge, or a cafe name"
+              />
+              <TextField
+                label="Street address"
+                value={form.address}
+                onChange={set("address")}
+                error={errors.address}
+                placeholder="Optional: full address of the meeting place"
+              />
+              <TextField
+                label="Area"
+                value={form.region}
+                onChange={set("region")}
+                error={errors.region}
+                placeholder="e.g. KAIST, Yuseong"
+                hint="Helps people filter by location."
+              />
+              <TextField
+                label="Number of players (including you)"
+                type="number"
+                min={2}
+                max={50}
+                required
+                value={form.capacity}
+                onChange={set("capacity")}
+                error={errors.capacity}
+              />
             </>
           )}
 
@@ -326,6 +356,7 @@ export function CreatePartyPage() {
                   <li>
                     📍 {form.locationName}
                     {form.region && ` · ${form.region}`}
+                    {form.address && <span className="block text-xs text-slate-500">{form.address}</span>}
                   </li>
                   <li>
                     👥 {form.capacity} players ·{" "}

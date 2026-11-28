@@ -3,7 +3,7 @@
 //
 // TODO (B):
 //  - transfer host (FR-64, FR-65), kick participant (FR-69), no-show + penalties (FR-70)
-//  - map/address picker and cafe suggestions (FR-37, FR-38, FR-123 to FR-129)
+//  - rule videos integration (FR-130 to FR-134)
 //  - recurring parties (FR-39, MAY)
 import bcrypt from "bcryptjs";
 import { and, asc, eq } from "drizzle-orm";
@@ -42,8 +42,10 @@ export async function createParty(host: AuthUser, input: CreatePartyInput) {
         capacity: input.capacity,
         startAt: input.startAt,
         locationName: input.locationName,
-        address: input.address,
+        address: input.address || null,
         region: input.region,
+        lat: input.lat ?? null,
+        lng: input.lng ?? null,
         availability: input.availability,
         availabilityNote: input.availabilityNote,
         description: input.description,
@@ -128,6 +130,12 @@ export async function editParty(partyId: string, user: AuthUser, input: EditPart
     note("Date/time", kst(old.startAt), kst(input.startAt));
     note("Meeting place", old.locationName, input.locationName);
     note("Address", old.address ?? "", input.address ?? "");
+    // The Edit Party form is still manual: keep mapped coordinates only if
+    // the venue name and address were not changed. Avoid stale map pins.
+    const sameVenue = old.locationName === input.locationName &&
+      (old.address ?? "") === (input.address ?? "");
+    const nextLat = input.lat ?? (sameVenue ? old.lat : null);
+    const nextLng = input.lng ?? (sameVenue ? old.lng : null);
     note("Region", old.region ?? "", input.region ?? "");
     note("Game availability", old.availability, input.availability);
     note("Availability details", old.availabilityNote ?? "", input.availabilityNote ?? "");
@@ -142,6 +150,8 @@ export async function editParty(partyId: string, user: AuthUser, input: EditPart
       locationName: input.locationName,
       address: input.address || null,
       region: input.region || null,
+      lat: nextLat,
+      lng: nextLng,
       availability: input.availability,
       availabilityNote: input.availabilityNote || null,
       description: input.description || null,

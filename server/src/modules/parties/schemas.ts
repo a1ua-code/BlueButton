@@ -17,11 +17,17 @@ export const createPartySchema = z
     locationName: z.string().trim().min(1, "Enter a meeting place.").max(100),
     address: z.string().trim().max(200).optional(),
     region: z.string().trim().max(50).optional(),
+    lat: z.number().finite().min(-90).max(90).optional(),
+    lng: z.number().finite().min(-180).max(180).optional(),
     availability: z.enum(["OWNED", "CAFE", "SEEKING", "OTHER"], "Choose who brings the game."),
     availabilityNote: z.string().trim().max(200).optional(),
     description: z.string().trim().max(2000).optional(),
     beginnerFriendly: z.boolean().default(false),
     password: z.string().min(4, "At least 4 characters.").max(50).optional().or(z.literal("")),
+  })
+  .refine((v) => (v.lat === undefined) === (v.lng === undefined), {
+    message: "A mapped meeting place needs both latitude and longitude.",
+    path: ["lat"],
   })
   .refine((v) => v.gameId || v.gameName, {
     message: "Choose a game or type its name.",

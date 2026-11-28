@@ -92,6 +92,11 @@ const STATUS_TEXT = {
 /** React to other modules' events with chat messages (FR-106). */
 function registerSystemMessages() {
   events.on("party.created", (e) => postSystemMessage(e.partyId, "Party created. Say hi!"));
+  // Owner B FR-63: persisted system notification to all current party members.
+  // Owner D should review this cross-module listener before merging.
+  events.on("party.updated", (e) =>
+    postSystemMessage(e.partyId, `Party settings changed: ${e.changes.join("; ")}.`),
+  );
 
   events.on("member.joined", (e) =>
     postSystemMessage(e.partyId, `${e.nickname} joined the party.`),

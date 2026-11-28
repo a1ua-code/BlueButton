@@ -24,6 +24,38 @@ export type CreatePartyInput = {
 export const createParty = (input: CreatePartyInput) =>
   api<{ party: { id: string }; redirectTo: string }>("/parties", { method: "POST", body: input });
 
+export type EditableParty = {
+  id: string;
+  title: string;
+  gameId: string | null;
+  gameName: string;
+  capacity: number;
+  memberCount: number;
+  startAt: string;
+  locationName: string;
+  address: string | null;
+  region: string | null;
+  availability: Availability;
+  availabilityNote: string | null;
+  description: string | null;
+  beginnerFriendly: boolean;
+  status: PartyStatus;
+  locked: boolean;
+};
+
+export type UpdatePartyInput = CreatePartyInput & {
+  address?: string;
+  removePassword?: boolean;
+};
+
+export const fetchPartyForEdit = (id: string) =>
+  api<{ party: EditableParty }>(`/parties/${id}/edit`).then((r) => r.party);
+
+export const updateParty = (id: string, input: UpdatePartyInput) =>
+  api<{ party: { id: string; status: PartyStatus; changes: string[] } }>(`/parties/${id}`, {
+    method: "PATCH", body: input,
+  });
+
 export const setPartyStatus = (id: string, status: "RECRUITING" | "CLOSED") =>
   api<{ status: PartyStatus }>(`/parties/${id}/status`, { method: "POST", body: { status } });
 

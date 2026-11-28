@@ -5,6 +5,7 @@ import { RequireAuth } from "./auth/AuthContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AdminPage } from "./pages/AdminPage";
 import { ChatPage } from "./pages/ChatPage";
+import { CafesPage } from "./pages/CafesPage";
 import { CreatePartyPage } from "./pages/CreatePartyPage";
 import { EditPartyPage } from "./pages/EditPartyPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -13,7 +14,6 @@ import { PartyDetailPage } from "./pages/PartyDetailPage";
 import { PartyListPage } from "./pages/PartyListPage";
 import {
   BookmarksPage,
-  CafesPage,
   HelpPage,
   NotFoundPage,
   ProfilePage,

@@ -2,7 +2,7 @@
 // (Listing, viewing and joining parties is C's - see modules/participation.)
 import { param } from "../../lib/params";
 import { Router } from "express";
-import { notYet } from "../../lib/notYet";
+import { z } from "zod";
 import { parse } from "../../lib/validate";
 import { currentUser, requireUser } from "../../middleware/auth";
 import { createPartySchema, editPartySchema, hostStatusSchema, transferHostSchema } from "./schemas";
@@ -45,8 +45,8 @@ partiesHostRouter.post("/:id/transfer-host", requireUser, async (req, res) => {
   const { newHostUserId } = parse(transferHostSchema, req.body);
   res.json({ transfer: await parties.transferHost(param(req, "id"), currentUser(req), newHostUserId) });
 });
-partiesHostRouter.delete(
-  "/:id/members/:userId",
-  requireUser,
-  notYet("Removing a participant (FR-69)"),
-);
+partiesHostRouter.delete("/:id/members/:userId", requireUser, async (req, res) => {
+  res.json({ result: await parties.kickParticipant(
+    param(req, "id"), currentUser(req), parse(z.uuid(), param(req, "userId")),
+  ) });
+});

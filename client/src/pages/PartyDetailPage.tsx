@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { errorMessage, fieldErrors } from "../api/client";
-import { cancelParty, fetchParty, joinParty, leaveParty, setPartyStatus, transferPartyHost } from "../api/parties";
+import { cancelParty, fetchParty, joinParty, kickPartyMember, leaveParty, setPartyStatus, transferPartyHost } from "../api/parties";
 import type { PartyDetail } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -284,9 +284,12 @@ function HostControls({ party }: { party: PartyDetail }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [leaveHostOpen, setLeaveHostOpen] = useState(false);
+  const [kickOpen, setKickOpen] = useState(false);
+  const [kickUserId, setKickUserId] = useState("");
   const [newHostId, setNewHostId] = useState("");
   const candidates = (party.members ?? []).filter((m) => m.id !== party.host.id && m.role !== "HOST");
   const selectedHostId = candidates.some((m) => m.id === newHostId) ? newHostId : (candidates[0]?.id ?? "");
+  const selectedKickId = candidates.some((m) => m.id === kickUserId) ? kickUserId : (candidates[0]?.id ?? "");
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["party", party.id] });
@@ -321,6 +324,17 @@ function HostControls({ party }: { party: PartyDetail }) {
       toast.success(`${result.newHostNickname} is now the host.`);
     },
     onError: (err) => toast.error(errorMessage(err)),
+  });
+
+  const kick = useMutation({
+    mutationFn: () => kickPartyMember(party.id, selectedKickId),
+    onSuccess: () => {
+      setKickOpen(false);
+      setKickUserId("");
+      refresh();
+      toast.success("Participant removed and blocked from rejoining this party.");
+    },
+    onError: (err) => { toast.error(errorMessage(err)); refresh(); },
   });
 
   const leaveAsHost = useMutation({
@@ -359,6 +373,11 @@ function HostControls({ party }: { party: PartyDetail }) {
           Transfer host
         </Button>
       )}
+      {candidates.length > 0 && (
+        <Button variant="danger" className="w-full" onClick={() => setKickOpen(true)}>
+          Remove participant
+        </Button>
+      )}
       <Button
         variant="secondary"
         className="w-full"
@@ -382,6 +401,25 @@ function HostControls({ party }: { party: PartyDetail }) {
       >
         <p className="mb-3">The selected participant becomes host, and you become a regular participant.</p>
         <SelectField label="New host" required value={selectedHostId} onChange={(e) => setNewHostId(e.target.value)}>
+          {candidates.length === 0 && <option value="">No eligible participants</option>}
+          {candidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
+        </SelectField>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={kickOpen}
+        title="Remove this participant?"
+        confirmLabel="Remove participant"
+        danger
+        loading={kick.isPending}
+        onClose={() => setKickOpen(false)}
+        onConfirm={() => {
+          if (selectedKickId) kick.mutate();
+          else toast.error("There is no eligible participant to remove.");
+        }}
+      >
+        <p className="mb-3">The selected participant will be removed and cannot rejoin this party.</p>
+        <SelectField label="Participant to remove" required value={selectedKickId}
+          onChange={(e) => setKickUserId(e.target.value)}>
           {candidates.length === 0 && <option value="">No eligible participants</option>}
           {candidates.map((m) => <option key={m.id} value={m.id}>{m.nickname}</option>)}
         </SelectField>

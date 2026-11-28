@@ -203,6 +203,48 @@ export async function transferHost(partyId: string, user: AuthUser, newHostUserI
   return result;
 }
 
+/** FR-69: remove an active non-host member; keep their membership row as REMOVED.
+ * Serializing on the party row also protects join/leave/capacity update races.
+ */
+export async function kickParticipant(partyId: string, host: AuthUser, memberUserId: string) {
+  const result = await db.transaction(async (tx) => {
+    const [party] = await tx.select({
+      hostId: parties.hostId, status: parties.status,
+      memberCount: parties.memberCount, capacity: parties.capacity,
+    }).from(parties).where(eq(parties.id, partyId)).for("update");
+    if (!party) throw notFound("Party");
+    if (party.hostId !== host.id) throw forbidden("Only the current host can remove members.");
+    if (party.status === "CANCELLED") throw conflict("PARTY_CANCELLED", "Cannot remove members from a cancelled party.");
+    if (memberUserId === party.hostId) throw conflict("CANNOT_KICK_HOST", "The host cannot remove themselves.");
+
+    const [member] = await tx.select({
+      role: partyMembers.role, state: partyMembers.state, nickname: users.nickname,
+    }).from(partyMembers).innerJoin(users, eq(users.id, partyMembers.userId))
+      .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, memberUserId)));
+    if (!member || member.state !== "ACTIVE") {
+      throw conflict("MEMBER_NOT_ACTIVE", "Select an active party participant.");
+    }
+    if (member.role === "HOST") throw conflict("CANNOT_KICK_HOST", "You cannot remove the host.");
+
+    await tx.update(partyMembers).set({ state: "REMOVED", leftAt: new Date() })
+      .where(and(eq(partyMembers.partyId, partyId), eq(partyMembers.userId, memberUserId)));
+    const memberCount = party.memberCount - 1;
+    const status = statusAfterCountChange(party.status, memberCount, party.capacity);
+    await tx.update(parties).set({ memberCount, status }).where(eq(parties.id, partyId));
+    return { nickname: member.nickname, status, previousStatus: party.status };
+  });
+
+  // C's joinParty already rejects REMOVED memberships; D removes the socket
+  // and posts a chat system message on member.left with removed=true.
+  events.emit("member.left", {
+    partyId, userId: memberUserId, nickname: result.nickname, removed: true,
+  });
+  if (result.previousStatus !== result.status) {
+    events.emit("party.status_changed", { partyId, from: result.previousStatus, to: result.status });
+  }
+  return { status: result.status, removedUserId: memberUserId };
+}
+
 /** Host switches between Recruiting and Closed (FR-67). */
 export async function setStatusByHost(
   partyId: string,

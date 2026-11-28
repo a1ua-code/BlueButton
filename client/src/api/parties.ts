@@ -67,6 +67,11 @@ export const transferPartyHost = (id: string, newHostUserId: string) =>
     method: "POST", body: { newHostUserId },
   });
 
+export const kickPartyMember = (id: string, userId: string) =>
+  api<{ result: { status: PartyStatus; removedUserId: string } }>(
+    `/parties/${id}/members/${userId}`, { method: "DELETE" },
+  );
+
 // ---- C: browsing and joining
 
 export type PartyFilters = {
